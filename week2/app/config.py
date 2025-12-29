@@ -20,7 +20,7 @@ class Settings:
         self.database_path: str = os.getenv("DATABASE_PATH", "data/app.db")
         
         # LLM 提取配置
-        self.use_llm_extraction: bool = os.getenv("USE_LLM_EXTRACTION", "true").lower() == "true"
+        self.use_llm_extraction: bool = os.getenv("USE_LLM_EXTRACTION", "false").lower() == "true"
         self.ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
         
         # 应用配置

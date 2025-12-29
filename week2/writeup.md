@@ -61,7 +61,9 @@ TODO: List all modified code files with the relevant line numbers. (We anticipat
 ### Exercise 4: Use Agentic Mode to Automate a Small Task
 Prompt: 
 ```
-TODO
+/linux 
+优化：
+@assignment_zh.md (63-64) 
 ``` 
 
 Generated Code Snippets:

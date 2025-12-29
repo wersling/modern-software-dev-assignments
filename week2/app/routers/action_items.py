@@ -87,6 +87,54 @@ def list_all(
     return [ActionItemResponse(**item) for item in results]
 
 
+@router.post("/extract-llm", response_model=ExtractResponse)
+def extract_llm(
+    request: ExtractRequest,
+    db: Database = Depends(get_db)
+) -> ExtractResponse:
+    """
+    使用 LLM 强制提取行动项（TODO 4：新增接口）
+    
+    Args:
+        request: 提取请求（包含文本和是否保存为笔记）
+        db: 数据库实例（依赖注入）
+        
+    Returns:
+        ExtractResponse: 提取结果
+        
+    Raises:
+        ExtractionError: 提取失败时抛出
+    """
+    from ..services.extract import extract_action_items_llm
+    
+    note_id: Optional[int] = None
+    
+    # 如果需要保存笔记
+    if request.save_note:
+        note_id = db.insert_note(request.text)
+        logger.info(f"Saved note with id {note_id}")
+    
+    # 使用 LLM 提取行动项
+    try:
+        items = extract_action_items_llm(request.text)
+    except Exception as e:
+        logger.error(f"LLM extraction failed: {e}")
+        raise ExtractionError(str(e))
+    
+    # 保存行动项到数据库
+    if items:
+        ids = db.insert_action_items(items, note_id=note_id)
+        extracted_items = [
+            ExtractedItem(id=item_id, text=text) 
+            for item_id, text in zip(ids, items)
+        ]
+    else:
+        extracted_items = []
+    
+    logger.info(f"LLM extracted {len(extracted_items)} action items")
+    return ExtractResponse(note_id=note_id, items=extracted_items)
+
+
 @router.post("/{action_item_id}/done", response_model=ActionItemResponse)
 def mark_done(
     action_item_id: int,
