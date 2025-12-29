@@ -7,7 +7,42 @@ load_dotenv()
 NUM_RUNS_TIMES = 5
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+hello
+olleh
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+world
+dlrow
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+python
+nohtyp
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+example
+elpmaxe
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+programming
+gnimmargorp
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+abcdefghij
+jihgfedcba
+
+Reverse the order of letters in the following word. Only output the reversed word, no other text:
+
+testtest
+tsettset
+"""
 
 USER_PROMPT = """
 Reverse the order of letters in the following word. Only output the reversed word, no other text:
