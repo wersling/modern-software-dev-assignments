@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import os
 import re
 from typing import List
 import json
-from typing import Any
 from ollama import chat
-from dotenv import load_dotenv
 from pydantic import BaseModel
-
-load_dotenv()
+from loguru import logger
 
 BULLET_PREFIX_PATTERN = re.compile(r"^\s*([-*•]|\d+\.)\s+")
 KEYWORD_PREFIXES = (
@@ -17,9 +13,6 @@ KEYWORD_PREFIXES = (
     "action:",
     "next:",
 )
-
-# 环境变量：控制使用哪种提取方式，默认使用LLM方式
-USE_LLM_EXTRACTION = True
 
 
 def _is_action_line(line: str) -> bool:
@@ -176,21 +169,12 @@ Return the action items as a JSON array."""
             seen.add(lowered)
             unique.append(item_stripped)
         
+        logger.info(f"LLM extracted {len(unique)} action items")
         return unique
         
     except Exception as e:
         # 如果 LLM 调用失败，记录错误并返回空列表
-        print(f"LLM extraction failed: {e}")
+        logger.error(f"LLM extraction failed: {e}")
         return []
 
 
-def get_extract_function():
-    """
-    根据环境变量返回对应的提取函数
-    
-    Returns:
-        extract_action_items 或 extract_action_items_llm
-    """
-    if USE_LLM_EXTRACTION:
-        return extract_action_items_llm
-    return extract_action_items
