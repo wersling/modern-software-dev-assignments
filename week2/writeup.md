@@ -22,7 +22,10 @@ For each exercise, please include what prompts you used to generate the answer, 
 ### Exercise 1: Scaffold a New Feature
 Prompt: 
 ```
-TODO
+@week2/app/services/extract.py 分析extract_action_items，采用llm方案实现，函数名为extract_action_items_llm。模型为llama3.1:8b。通过ollama与llm完成行动提取：
+1. 使用结构化输出，JSON，可以参考文档：`https://ollama.com/blog/structured-outputs`
+2. 不要删除原有函数，只是提供切换方式
+3. 保持业务一致性。
 ``` 
 
 Generated Code Snippets:
