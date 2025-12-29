@@ -18,7 +18,7 @@ KEYWORD_PREFIXES = (
     "next:",
 )
 
-# 环境变量：控制使用哪种提取方式，默认使用规则方式
+# 环境变量：控制使用哪种提取方式，默认使用LLM方式
 USE_LLM_EXTRACTION = True
 
 
@@ -48,6 +48,12 @@ def extract_action_items(text: str) -> List[str]:
             # Trim common checkbox markers
             cleaned = cleaned.removeprefix("[ ]").strip()
             cleaned = cleaned.removeprefix("[todo]").strip()
+            cleaned = cleaned.removeprefix("[TODO]").strip()
+            # Trim keyword prefixes (case-insensitive)
+            for prefix in KEYWORD_PREFIXES:
+                if cleaned.lower().startswith(prefix):
+                    cleaned = cleaned[len(prefix):].strip()
+                    break
             extracted.append(cleaned)
     # Fallback: if nothing matched, heuristically split into sentences and pick imperative-like ones
     if not extracted:

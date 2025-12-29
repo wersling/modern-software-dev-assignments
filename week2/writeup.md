@@ -36,7 +36,9 @@ TODO: List all modified code files with the relevant line numbers.
 ### Exercise 2: Add Unit Tests
 Prompt: 
 ```
-TODO
+@week2/tests/test_extract.py 完善代码，包含@week2/app/services/extract.py 两种方式的测试。
+
+- 考虑边界问题
 ``` 
 
 Generated Code Snippets:
@@ -47,7 +49,7 @@ TODO: List all modified code files with the relevant line numbers.
 ### Exercise 3: Refactor Existing Code for Clarity
 Prompt: 
 ```
-TODO
+/linux @week2/app 分析代码，重点对清晰定义的 API 合约/Schema、数据库层清理、应用生命周期/配置、错误处理等方面进行重构。
 ``` 
 
 Generated/Modified Code Snippets:
