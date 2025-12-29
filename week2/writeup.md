@@ -75,7 +75,8 @@ TODO: List all modified code files with the relevant line numbers.
 ### Exercise 5: Generate a README from the Codebase
 Prompt: 
 ```
-TODO
+@week2 为项目创建README.md。至少包含
+@assignment_zh.md (72-75) 
 ``` 
 
 Generated Code Snippets:
