@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "weather": {
+      "url": "https://api.wersling.cn/mcp/weather",
+      "headers": {
+        "Authorization": "Bearer your-secret-token-here"
+      }
+    }
+  }
+}
+

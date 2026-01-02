@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  weather-mcp:
+    build: .
+    container_name: weather-mcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-58368b46948dd193e1c0e377651c2b06}
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-your-secret-token-here}
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
