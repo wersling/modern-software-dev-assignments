@@ -1,4 +1,4 @@
-import type { ActionItem, ActionItemCreate, Note, NoteCreate } from '../types';
+import type { ActionItem, ActionItemCreate, Note, NoteCreate, NoteUpdate } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -8,6 +8,11 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const errorText = await res.text();
     throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+  }
+
+  // Handle 204 No Content (DELETE)
+  if (res.status === 204) {
+    return undefined as T;
   }
 
   return res.json();
@@ -25,6 +30,18 @@ export const notesApi = {
     }),
 
   get: (id: number) => fetchJSON<Note>(`/notes/${id}`),
+
+  update: (id: number, note: NoteUpdate) =>
+    fetchJSON<Note>(`/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(note),
+    }),
+
+  delete: (id: number) =>
+    fetchJSON<void>(`/notes/${id}`, {
+      method: 'DELETE',
+    }),
 
   search: (query: string) =>
     fetchJSON<Note[]>(`/notes/search?q=${encodeURIComponent(query)}`),

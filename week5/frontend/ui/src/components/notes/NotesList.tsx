@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { notesApi } from '../../services/api';
-import type { Note } from '../../types';
+import type { Note, NoteUpdate } from '../../types';
 import { NoteCard } from './NoteCard';
 import { NoteForm } from './NoteForm';
 
@@ -51,6 +51,41 @@ export function NotesList() {
     }
   };
 
+  const handleUpdateNote = async (id: number, data: NoteUpdate) => {
+    // Optimistic update - immediately update the note in the list
+    const previousNotes = [...notes];
+
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === id
+          ? { ...note, ...(data.title && { title: data.title }), ...(data.content && { content: data.content }) }
+          : note
+      )
+    );
+
+    try {
+      await notesApi.update(id, data);
+    } catch (error) {
+      // Rollback on error
+      setNotes(previousNotes);
+      throw error;
+    }
+  };
+
+  const handleDeleteNote = async (id: number) => {
+    // Optimistic update - immediately remove the note from the list
+    const previousNotes = [...notes];
+    setNotes((prev) => prev.filter((note) => note.id !== id));
+
+    try {
+      await notesApi.delete(id);
+    } catch (error) {
+      // Rollback on error
+      setNotes(previousNotes);
+      throw error;
+    }
+  };
+
   if (isLoading) {
     return <div>Loading notes...</div>;
   }
@@ -75,7 +110,12 @@ export function NotesList() {
       ) : (
         <ul className="notes-list">
           {notes.map((note) => (
-            <NoteCard key={note.id} note={note} />
+            <NoteCard
+              key={note.id}
+              note={note}
+              onUpdate={handleUpdateNote}
+              onDelete={handleDeleteNote}
+            />
           ))}
         </ul>
       )}

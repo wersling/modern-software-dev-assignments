@@ -11,6 +11,11 @@ export interface NoteCreate {
   content: string;
 }
 
+export interface NoteUpdate {
+  title?: string;
+  content?: string;
+}
+
 export interface ActionItem {
   id: number;
   description: string;
