@@ -58,8 +58,13 @@ def update_note(note_id: int, payload: NoteUpdate, db: Session = Depends(get_db)
     for field, value in update_data.items():
         setattr(note, field, value)
 
-    db.flush()
-    db.refresh(note)
+    try:
+        db.commit()
+        db.refresh(note)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update note: {str(e)}")
+
     return NoteRead.model_validate(note)
 
 
@@ -69,7 +74,11 @@ def delete_note(note_id: int, db: Session = Depends(get_db)) -> Response:
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
 
-    db.delete(note)
-    db.flush()
+    try:
+        db.delete(note)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete note: {str(e)}")
 
     return Response(status_code=204)

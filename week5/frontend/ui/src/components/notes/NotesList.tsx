@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import { notesApi } from '../../services/api';
 import type { Note, NoteUpdate } from '../../types';
 import { NoteCard } from './NoteCard';
@@ -16,7 +17,9 @@ export function NotesList() {
       const data = await notesApi.list();
       setNotes(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load notes');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load notes';
+      setError(errorMsg);
+      toast.error(errorMsg);
       console.error('Failed to load notes:', err);
     } finally {
       setIsLoading(false);
@@ -94,7 +97,7 @@ export function NotesList() {
     return (
       <div>
         <p>Error: {error}</p>
-        <button onClick={loadNotes} type="button">
+        <button onClick={loadNotes} type="button" className="btn-primary">
           Retry
         </button>
       </div>

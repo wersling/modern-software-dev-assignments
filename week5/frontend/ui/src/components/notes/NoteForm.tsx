@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { toast } from 'react-toastify';
 import type { NoteCreate } from '../../types';
 
 interface NoteFormProps {
@@ -13,7 +14,10 @@ export function NoteForm({ onSubmit }: NoteFormProps) {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!title.trim() || !content.trim()) {
+      toast.error('Title and content are required');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -22,7 +26,8 @@ export function NoteForm({ onSubmit }: NoteFormProps) {
       setContent('');
     } catch (error) {
       console.error('Failed to create note:', error);
-      alert('Failed to create note. Please try again.');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to create note. Please try again.';
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

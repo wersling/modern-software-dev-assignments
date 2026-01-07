@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import type { Note, NoteUpdate } from '../../types';
 
 interface NoteCardProps {
@@ -30,7 +31,7 @@ export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
 
   const handleSave = async () => {
     if (!editTitle.trim() || !editContent.trim()) {
-      alert('Title and content are required');
+      toast.error('Title and content are required');
       return;
     }
 
@@ -38,9 +39,11 @@ export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
     try {
       await onUpdate(note.id, { title: editTitle, content: editContent });
       setIsEditing(false);
+      toast.success('Note updated successfully');
     } catch (error) {
       console.error('Failed to update note:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update note');
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update note';
+      toast.error(errorMsg);
       // Reset to original values
       setEditTitle(note.title);
       setEditContent(note.content);
@@ -54,9 +57,11 @@ export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
       setIsDeleting(true);
       try {
         await onDelete(note.id);
+        toast.success('Note deleted successfully');
       } catch (error) {
         console.error('Failed to delete note:', error);
-        alert(error instanceof Error ? error.message : 'Failed to delete note');
+        const errorMsg = error instanceof Error ? error.message : 'Failed to delete note';
+        toast.error(errorMsg);
         setIsDeleting(false);
       }
     }
