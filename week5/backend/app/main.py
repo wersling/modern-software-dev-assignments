@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -14,8 +14,8 @@ app = FastAPI(title="Modern Software Dev Starter (Week 5)")
 # Ensure data dir exists
 Path("data").mkdir(parents=True, exist_ok=True)
 
-# Mount static frontend
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+# Mount static frontend (serves the built React app)
+app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
 
 
 @app.on_event("startup")
@@ -24,11 +24,24 @@ def startup_event() -> None:
     apply_seed_if_needed()
 
 
-@app.get("/")
-async def root() -> FileResponse:
-    return FileResponse("frontend/index.html")
-
-
-# Routers
+# Routers - must be declared before the SPA fallback
 app.include_router(notes_router.router)
 app.include_router(action_items_router.router)
+
+
+@app.get("/")
+async def root() -> FileResponse:
+    """Serve the React SPA"""
+    return FileResponse("frontend/dist/index.html")
+
+
+# SPA fallback - all unmatched routes return index.html for client-side routing
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str) -> FileResponse:
+    """Fallback route for SPA - returns index.html for all non-API routes"""
+    # Don't intercept API routes - return 404 for unmatched API paths
+    if full_path.startswith("notes/") or full_path.startswith("action-items/"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # For all other paths, serve the SPA
+    return FileResponse("frontend/dist/index.html")
