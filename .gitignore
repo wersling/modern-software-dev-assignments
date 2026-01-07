@@ -19,6 +19,7 @@ wheels/
 .installed.cfg
 *.egg
 PIPFILE.lock
+week5/.claude/settings.local.json
 
 # Database
 *.db
