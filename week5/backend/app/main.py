@@ -14,8 +14,10 @@ app = FastAPI(title="Modern Software Dev Starter (Week 5)")
 # Ensure data dir exists
 Path("data").mkdir(parents=True, exist_ok=True)
 
-# Mount static frontend (serves the built React app)
-app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
+# Mount static frontend (serves the built React app) - only if dist exists
+frontend_dist = Path("frontend/dist")
+if frontend_dist.exists():
+    app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
 
 
 @app.on_event("startup")
@@ -32,7 +34,10 @@ app.include_router(action_items_router.router)
 @app.get("/")
 async def root() -> FileResponse:
     """Serve the React SPA"""
-    return FileResponse("frontend/dist/index.html")
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        return FileResponse("frontend/dist/index.html")
+    return {"message": "Backend API is running. Frontend not built."}
 
 
 # SPA fallback - all unmatched routes return index.html for client-side routing
@@ -43,5 +48,8 @@ async def serve_spa(full_path: str) -> FileResponse:
     if full_path.startswith("notes/") or full_path.startswith("action-items/"):
         raise HTTPException(status_code=404, detail="Not found")
 
-    # For all other paths, serve the SPA
-    return FileResponse("frontend/dist/index.html")
+    # For all other paths, serve the SPA (if built)
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        return FileResponse("frontend/dist/index.html")
+    return {"message": "Backend API is running. Frontend not built."}

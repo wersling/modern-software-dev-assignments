@@ -68,3 +68,12 @@ class ActionItemRead(BaseModel):
     description: str
     completed: bool
     created_at: datetime
+
+
+class PaginatedNotesList(BaseModel):
+    """Paginated response for notes search."""
+
+    items: list[NoteRead]
+    total: int
+    page: int
+    page_size: int

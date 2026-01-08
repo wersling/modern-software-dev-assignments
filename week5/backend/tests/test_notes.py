@@ -289,3 +289,249 @@ def test_update_note_preserves_other_field(client):
     data = r.json()
     assert data["title"] == "New Title"  # Should be preserved
     assert data["content"] == "New Content"
+
+
+# ===== Search and Pagination Tests =====
+
+
+def test_search_case_insensitive(client):
+    """Test that search is case-insensitive."""
+    # Create notes with different cases
+    client.post("/notes/", json={"title": "HELLO world", "content": "Testing case"})
+    client.post("/notes/", json={"title": "hello there", "content": "Another test"})
+    client.post("/notes/", json={"title": "Goodbye", "content": "Not matching"})
+
+    # Search with lowercase
+    r = client.get("/notes/search/?q=hello")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+
+    # Search with uppercase
+    r = client.get("/notes/search/?q=HELLO")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 2
+
+
+def test_search_empty_query(client):
+    """Test that empty query returns all notes with pagination."""
+    # Create some notes
+    for i in range(5):
+        client.post("/notes/", json={"title": f"Note {i}", "content": f"Content {i}"})
+
+    # Search without query
+    r = client.get("/notes/search/")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] >= 5
+    assert "items" in data
+    assert "page" in data
+    assert "page_size" in data
+
+
+def test_search_pagination(client):
+    """Test pagination functionality."""
+    # Create 25 notes
+    for i in range(25):
+        client.post("/notes/", json={"title": f"Note {i}", "content": f"Content {i}"})
+
+    # First page
+    r = client.get("/notes/search/?page=1&page_size=10")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 25
+    assert data["page"] == 1
+    assert data["page_size"] == 10
+    assert len(data["items"]) == 10
+
+    # Second page
+    r = client.get("/notes/search/?page=2&page_size=10")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 25
+    assert data["page"] == 2
+    assert len(data["items"]) == 10
+
+    # Third page (partial)
+    r = client.get("/notes/search/?page=3&page_size=10")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["items"]) == 5
+
+
+def test_search_pagination_with_query(client):
+    """Test pagination with search query."""
+    # Create notes with matching content
+    for i in range(15):
+        client.post("/notes/", json={"title": f"Test {i}", "content": "searchable content"})
+
+    # Search with pagination
+    r = client.get("/notes/search/?q=searchable&page=1&page_size=5")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 15
+    assert len(data["items"]) == 5
+
+
+def test_search_sort_by_created_desc(client):
+    """Test sorting by creation date descending (default)."""
+    # Create notes with delays to ensure different timestamps
+    client.post("/notes/", json={"title": "First", "content": "Content 1"})
+    client.post("/notes/", json={"title": "Second", "content": "Content 2"})
+    client.post("/notes/", json={"title": "Third", "content": "Content 3"})
+
+    r = client.get("/notes/search/?sort=created_desc")
+    assert r.status_code == 200
+    data = r.json()
+    items = data["items"]
+    # Most recent first
+    assert items[0]["title"] == "Third"
+    assert items[1]["title"] == "Second"
+    assert items[2]["title"] == "First"
+
+
+def test_search_sort_by_created_asc(client):
+    """Test sorting by creation date ascending."""
+    client.post("/notes/", json={"title": "First", "content": "Content 1"})
+    client.post("/notes/", json={"title": "Second", "content": "Content 2"})
+    client.post("/notes/", json={"title": "Third", "content": "Content 3"})
+
+    r = client.get("/notes/search/?sort=created_asc")
+    assert r.status_code == 200
+    data = r.json()
+    items = data["items"]
+    # Oldest first
+    assert items[0]["title"] == "First"
+    assert items[1]["title"] == "Second"
+    assert items[2]["title"] == "Third"
+
+
+def test_search_sort_by_title_asc(client):
+    """Test sorting by title ascending."""
+    client.post("/notes/", json={"title": "Zebra", "content": "Last"})
+    client.post("/notes/", json={"title": "Apple", "content": "First"})
+    client.post("/notes/", json={"title": "Middle", "content": "Middle"})
+
+    r = client.get("/notes/search/?sort=title_asc")
+    assert r.status_code == 200
+    data = r.json()
+    items = data["items"]
+    assert items[0]["title"] == "Apple"
+    assert items[1]["title"] == "Middle"
+    assert items[2]["title"] == "Zebra"
+
+
+def test_search_sort_by_title_desc(client):
+    """Test sorting by title descending."""
+    client.post("/notes/", json={"title": "Zebra", "content": "Last"})
+    client.post("/notes/", json={"title": "Apple", "content": "First"})
+    client.post("/notes/", json={"title": "Middle", "content": "Middle"})
+
+    r = client.get("/notes/search/?sort=title_desc")
+    assert r.status_code == 200
+    data = r.json()
+    items = data["items"]
+    assert items[0]["title"] == "Zebra"
+    assert items[1]["title"] == "Middle"
+    assert items[2]["title"] == "Apple"
+
+
+def test_search_no_results(client):
+    """Test search with query that matches nothing."""
+    client.post("/notes/", json={"title": "Test Note", "content": "Content"})
+
+    r = client.get("/notes/search/?q=nonexistent")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 0
+    assert len(data["items"]) == 0
+
+
+def test_search_page_boundary_conditions(client):
+    """Test edge cases for pagination."""
+    # Create 20 notes
+    for i in range(20):
+        client.post("/notes/", json={"title": f"Note {i}", "content": f"Content {i}"})
+
+    # Test page_size at minimum (1)
+    r = client.get("/notes/search/?page_size=1")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["items"]) == 1
+
+    # Test page_size at maximum (100)
+    r = client.get("/notes/search/?page_size=100")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["items"]) == 20  # Only 20 notes exist
+
+
+def test_search_invalid_page_size(client):
+    """Test that invalid page_size values are rejected."""
+    # page_size too large (> 100)
+    r = client.get("/notes/search/?page_size=101")
+    assert r.status_code == 422  # Validation error
+
+    # page_size too small (< 1)
+    r = client.get("/notes/search/?page_size=0")
+    assert r.status_code == 422
+
+
+def test_search_invalid_page_number(client):
+    """Test that invalid page numbers are rejected."""
+    # page must be >= 1
+    r = client.get("/notes/search/?page=0")
+    assert r.status_code == 422  # Validation error
+
+
+def test_search_invalid_sort_option(client):
+    """Test that invalid sort options are rejected."""
+    r = client.get("/notes/search/?sort=invalid_option")
+    assert r.status_code == 422  # Validation error
+
+
+def test_search_in_title_and_content(client):
+    """Test that search matches both title and content."""
+    client.post("/notes/", json={"title": "Python Tutorial", "content": "Learn programming"})
+    client.post("/notes/", json={"title": "Programming Guide", "content": "Python basics"})
+    client.post("/notes/", json={"title": "Other Note", "content": "No match here"})
+
+    r = client.get("/notes/search/?q=python")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 2  # Matches in both title and content
+
+
+def test_search_with_special_characters(client):
+    """Test search with special characters."""
+    client.post("/notes/", json={"title": "Note with @ symbol", "content": "Content @"})
+    client.post("/notes/", json={"title": "Note with other", "content": "Content"})
+
+    r = client.get("/notes/search/?q=@")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert "@" in data["items"][0]["title"] or "@" in data["items"][0]["content"]
+
+
+def test_search_sql_wildcards_escaped(client):
+    """Test that SQL wildcards (%) and (_) are properly escaped."""
+    client.post("/notes/", json={"title": "Note with % symbol", "content": "Content"})
+    client.post("/notes/", json={"title": "Note with _ underscore", "content": "Content"})
+    client.post("/notes/", json={"title": "Other note", "content": "Different content"})
+
+    # Search for % should match literal % not wildcard
+    r = client.get("/notes/search/?q=%")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert "%" in data["items"][0]["title"]
+
+    # Search for _ should match literal _ not wildcard
+    r = client.get("/notes/search/?q=_")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert "_" in data["items"][0]["title"]

@@ -43,8 +43,15 @@ export const notesApi = {
       method: 'DELETE',
     }),
 
-  search: (query: string) =>
-    fetchJSON<Note[]>(`/notes/search?q=${encodeURIComponent(query)}`),
+  search: (query: string, page = 1, pageSize = 10, sort = 'created_desc') =>
+    fetchJSON<{
+      items: Note[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>(
+      `/notes/search/?q=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}&sort=${sort}`
+    ),
 };
 
 // Action Items API

@@ -3,9 +3,9 @@ import tempfile
 from collections.abc import Generator
 
 import pytest
-from backend.app.db import get_db
-from backend.app.main import app
-from backend.app.models import Base
+from app.db import get_db
+from app.main import app
+from app.models import Base
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
