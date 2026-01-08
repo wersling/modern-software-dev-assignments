@@ -63,6 +63,7 @@ class NoteRead(BaseModel):
     title: str
     content: str
     created_at: datetime
+    tags: list["TagRead"] = Field(default=[], description="List of tags associated with this note")
 
 
 class ActionItemCreate(BaseModel):
@@ -131,3 +132,52 @@ class PaginatedNotesList(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class TagCreate(BaseModel):
+    """Request model for creating a tag."""
+
+    name: str = Field(..., min_length=1, max_length=50, description="Tag name (1-50 characters)")
+
+    @field_validator("name")
+    @classmethod
+    def strip_whitespace(cls, v: str) -> str:
+        """Strip leading and trailing whitespace from tag name."""
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @model_validator(mode="after")
+    def validate_not_empty(self) -> "TagCreate":
+        """Validate that name is not empty after stripping."""
+        if self.name == "":
+            raise ValueError("name cannot be empty or whitespace only")
+        return self
+
+
+class TagRead(BaseModel):
+    """Response model for a tag."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    created_at: datetime
+
+
+class TagAttach(BaseModel):
+    """Request model for attaching tags to a note."""
+
+    tag_ids: list[int] = Field(
+        ..., min_length=1, description="List of tag IDs to attach to the note"
+    )
+
+    @field_validator("tag_ids")
+    @classmethod
+    def validate_tag_ids(cls, v: list[int]) -> list[int]:
+        """Validate that tag IDs list is not empty and contains positive integers."""
+        if not v:
+            raise ValueError("tag_ids cannot be empty")
+        if any(tag_id < 1 for tag_id in v):
+            raise ValueError("all tag IDs must be positive integers")
+        return v

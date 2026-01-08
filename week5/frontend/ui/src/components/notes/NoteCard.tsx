@@ -6,9 +6,30 @@ interface NoteCardProps {
   note: Note;
   onUpdate: (id: number, data: NoteUpdate) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onTagClick?: (tagName: string) => void; // Optional callback for tag filtering
 }
 
-export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
+/**
+ * Generate a consistent color based on tag name using simple hash
+ * @param name - Tag name to generate color for
+ * @returns HSL color string
+ */
+function getTagColor(name: string): string {
+  // Simple hash function to generate a number from string
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  // Use hash to generate hue (0-360), saturation (60-80%), lightness (85-95%)
+  const hue = Math.abs(hash % 360);
+  const saturation = 60 + (Math.abs(hash >> 8) % 20); // 60-80%
+  const lightness = 85 + (Math.abs(hash >> 16) % 10); // 85-95%
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+export function NoteCard({ note, onUpdate, onDelete, onTagClick }: NoteCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -114,6 +135,33 @@ export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
     );
   }
 
+  // Render tags if they exist
+  const renderTags = () => {
+    if (!note.tags || note.tags.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="note-tags">
+        {note.tags.map((tag) => {
+          const backgroundColor = getTagColor(tag.name);
+          return (
+            <span
+              key={tag.id}
+              className="tag-chip"
+              style={{ backgroundColor }}
+              onClick={() => onTagClick?.(tag.name)}
+              title={onTagClick ? `Filter by tag: ${tag.name}` : tag.name}
+              aria-label={`Tag: ${tag.name}`}
+            >
+              #{tag.name}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <li className="note-card">
       <article>
@@ -143,6 +191,8 @@ export function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
           </div>
         </div>
         <p>{note.content}</p>
+        {/* Display tags between content and timestamp */}
+        {renderTags()}
         <time dateTime={note.created_at}>{formatDate}</time>
       </article>
     </li>

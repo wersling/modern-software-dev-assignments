@@ -1,23 +1,26 @@
-import { useEffect, useState } from 'react';
+/**
+ * Example: Implementing Tag Filtering in NotesList
+ *
+ * This example shows how to extend NotesList to support tag filtering
+ * using the onTagClick callback from NoteCard component.
+ */
+
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { notesApi } from '../../services/api';
 import type { Note, NoteUpdate } from '../../types';
 import { NoteCard } from './NoteCard';
 import { NoteForm } from './NoteForm';
-import { TagFilter, TagManager } from '../tags';
 
-export function NotesList() {
+export function NotesListWithTagFilter() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const pageSize = 10;
-
-  // Tag filtering state
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [filterMode, setFilterMode] = useState<'AND' | 'OR'>('OR');
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -27,49 +30,31 @@ export function NotesList() {
       setError(null);
 
       try {
+        // If a tag is selected, we need to filter by that tag
+        // This is a simple client-side filter example
         let data;
-
-        // Priority: Tag filter > Search > List all
-        if (selectedTagIds.length > 0) {
-          // Filter by tags
-          // Note: Current backend API only supports single tag_id filter
-          // For multi-tag filtering, we'll need to filter client-side
+        if (selectedTag) {
+          // Get all notes and filter by tag
           const allNotes = await notesApi.list();
-
-          let filteredNotes = allNotes.filter((note) => {
-            const noteTagIds = note.tags.map((tag) => tag.id);
-
-            if (filterMode === 'AND') {
-              // Must have ALL selected tags
-              return selectedTagIds.every((tagId) => noteTagIds.includes(tagId));
-            } else {
-              // OR mode: Must have AT LEAST ONE selected tag
-              return selectedTagIds.some((tagId) => noteTagIds.includes(tagId));
-            }
-          });
-
+          const filteredNotes = allNotes.filter(note =>
+            note.tags.some(tag => tag.name === selectedTag)
+          );
           data = {
             items: filteredNotes,
             total: filteredNotes.length,
             page: 1,
-            page_size: pageSize,
+            page_size: pageSize
           };
-        } else if (searchQuery) {
-          // Search mode
-          data = await notesApi.search(searchQuery, currentPage, pageSize);
         } else {
-          // List all mode
-          data = {
-            items: await notesApi.list(),
-            total: 0,
-            page: 1,
-            page_size: pageSize,
-          };
+          // Normal search or list all
+          data = searchQuery
+            ? await notesApi.search(searchQuery, currentPage, pageSize)
+            : { items: await notesApi.list(), total: 0, page: 1, page_size: pageSize };
         }
 
         if (!abortController.signal.aborted) {
           setNotes(data.items);
-          setTotalResults(searchQuery || selectedTagIds.length > 0 ? data.total : data.items.length);
+          setTotalResults(searchQuery || selectedTag ? data.total : data.items.length);
           setCurrentPage(data.page);
         }
       } catch (err) {
@@ -86,15 +71,12 @@ export function NotesList() {
       }
     };
 
-    const debounceTimeout = setTimeout(() => {
-      loadNotes();
-    }, searchQuery && selectedTagIds.length === 0 ? 300 : 0);
+    loadNotes();
 
     return () => {
-      clearTimeout(debounceTimeout);
       abortController.abort();
     };
-  }, [searchQuery, currentPage, selectedTagIds, filterMode]);
+  }, [searchQuery, currentPage, selectedTag]);
 
   const handleCreateNote = async (noteCreate: { title: string; content: string }) => {
     const tempId = Date.now();
@@ -102,7 +84,7 @@ export function NotesList() {
       id: tempId,
       ...noteCreate,
       created_at: new Date().toISOString(),
-      tags: [], // Initialize with empty tags array
+      tags: [],
     };
 
     setNotes((prev) => [...prev, tempNote]);
@@ -143,7 +125,7 @@ export function NotesList() {
 
     try {
       await notesApi.delete(id);
-      if (searchQuery) {
+      if (searchQuery || selectedTag) {
         setCurrentPage(1);
       }
     } catch (error) {
@@ -152,85 +134,34 @@ export function NotesList() {
     }
   };
 
+  /**
+   * Handle tag click - toggle tag filter
+   * If the same tag is clicked again, clear the filter
+   */
+  const handleTagClick = (tagName: string) => {
+    setSelectedTag((prev) => (prev === tagName ? null : tagName));
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  /**
+   * Clear the tag filter
+   */
+  const handleClearTagFilter = () => {
+    setSelectedTag(null);
+    setCurrentPage(1);
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    // Clear tag filters when searching
-    if (e.target.value && selectedTagIds.length > 0) {
-      setSelectedTagIds([]);
-    }
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
   };
 
-  const handleTagToggle = (tagId: number) => {
-    setSelectedTagIds((prev) => {
-      const isSelected = prev.includes(tagId);
-      const newSelected = isSelected
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId];
-
-      // Clear search when filtering by tags
-      if (newSelected.length > 0 && searchQuery) {
-        setSearchQuery('');
-      }
-
-      return newSelected;
-    });
-    setCurrentPage(1);
-  };
-
-  const handleClearFilters = () => {
-    setSelectedTagIds([]);
-    setCurrentPage(1);
-  };
-
-  const handleRetry = () => {
-    setSearchQuery((prev) => prev);
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextPage = () => {
-    const maxPage = Math.ceil(totalResults / pageSize);
-    if (currentPage < maxPage) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const totalPages = Math.ceil(totalResults / pageSize);
-  const showPagination = totalResults > pageSize;
-
   return (
     <section className="notes-section">
       <h2>Notes</h2>
       <NoteForm onSubmit={handleCreateNote} />
-
-      {/* Tag Filter */}
-      <TagFilter
-        selectedTagIds={selectedTagIds}
-        onTagToggle={handleTagToggle}
-        onClearFilters={handleClearFilters}
-        disabled={isLoading}
-        filterMode={filterMode}
-        onFilterModeChange={setFilterMode}
-      />
-
-      {/* Tag Manager */}
-      <TagManager
-        onTagCreated={() => {
-          // Refresh notes when a new tag is created
-          setSearchQuery((prev) => prev);
-        }}
-        onTagDeleted={() => {
-          // Refresh notes when a tag is deleted
-          setSearchQuery((prev) => prev);
-        }}
-      />
 
       {/* Search Box */}
       <div className="search-box" style={{ margin: '20px 0' }}>
@@ -239,14 +170,14 @@ export function NotesList() {
           value={searchQuery}
           onChange={handleSearchChange}
           placeholder="Search notes by title or content..."
-          disabled={selectedTagIds.length > 0}
+          disabled={!!selectedTag}
           style={{
             width: '100%',
             padding: '10px',
             fontSize: '16px',
             border: '1px solid #ddd',
             borderRadius: '4px',
-            opacity: selectedTagIds.length > 0 ? 0.6 : 1,
+            opacity: selectedTag ? 0.6 : 1,
           }}
         />
         {searchQuery && !isLoading && (
@@ -254,41 +185,72 @@ export function NotesList() {
             Found {totalResults} result{totalResults !== 1 ? 's' : ''}
           </p>
         )}
-        {searchQuery && isLoading && (
-          <p style={{ marginTop: '10px', color: '#999' }}>
-            Searching...
-          </p>
-        )}
-        {selectedTagIds.length > 0 && !searchQuery && (
-          <p style={{ marginTop: '10px', color: '#666', fontSize: '0.9rem' }}>
-            💡 Search is disabled while tag filters are active. Clear filters to search.
-          </p>
-        )}
       </div>
 
-      {error && (
-        <div style={{ padding: '20px', background: '#fee', color: '#c33', marginBottom: '20px' }}>
-          <p>Error: {error}</p>
-          <button onClick={handleRetry} type="button" className="btn-primary">
-            Retry
+      {/* Tag Filter Indicator */}
+      {selectedTag && (
+        <div
+          style={{
+            padding: '10px 15px',
+            background: '#e3f2fd',
+            border: '1px solid #2196f3',
+            borderRadius: '4px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <span style={{ fontWeight: 500, color: '#1971c7' }}>
+            Filtering by tag: <strong>#{selectedTag}</strong>
+          </span>
+          <button
+            onClick={handleClearTagFilter}
+            type="button"
+            className="btn-secondary"
+            style={{
+              padding: '4px 12px',
+              fontSize: '14px',
+            }}
+          >
+            Clear filter
           </button>
+          <span style={{ color: '#666', fontSize: '14px' }}>
+            ({notes.length} note{notes.length !== 1 ? 's' : ''})
+          </span>
         </div>
       )}
 
+      {/* Error State */}
+      {error && (
+        <div
+          style={{
+            padding: '20px',
+            background: '#fee',
+            color: '#c33',
+            marginBottom: '20px',
+          }}
+        >
+          <p>Error: {error}</p>
+        </div>
+      )}
+
+      {/* Loading State */}
       {isLoading && notes.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
           Loading notes...
         </div>
       ) : notes.length === 0 ? (
         <p>
-          {searchQuery
+          {selectedTag
+            ? `No notes found with tag "#${selectedTag}"`
+            : searchQuery
             ? 'No notes found matching your search.'
-            : selectedTagIds.length > 0
-            ? 'No notes found with the selected tags.'
             : 'No notes yet. Create one above!'}
         </p>
       ) : (
         <>
+          {/* Notes List */}
           <ul className="notes-list">
             {notes.map((note) => (
               <NoteCard
@@ -296,13 +258,14 @@ export function NotesList() {
                 note={note}
                 onUpdate={handleUpdateNote}
                 onDelete={handleDeleteNote}
+                onTagClick={handleTagClick}  // Enable tag filtering!
               />
             ))}
           </ul>
 
-          {showPagination && (
+          {/* Pagination (could be enhanced for tag filtering) */}
+          {!selectedTag && totalResults > pageSize && (
             <div
-              className="pagination-controls"
               style={{
                 display: 'flex',
                 justifyContent: 'center',
@@ -312,23 +275,19 @@ export function NotesList() {
               }}
             >
               <button
-                onClick={handlePreviousPage}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || isLoading}
                 type="button"
                 className="btn-primary"
-                style={{ opacity: currentPage === 1 || isLoading ? 0.5 : 1 }}
               >
                 Previous
               </button>
-              <span>
-                Page {currentPage} of {totalPages}
-              </span>
+              <span>Page {currentPage}</span>
               <button
-                onClick={handleNextPage}
-                disabled={currentPage >= totalPages || isLoading}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={currentPage * pageSize >= totalResults || isLoading}
                 type="button"
                 className="btn-primary"
-                style={{ opacity: currentPage >= totalPages || isLoading ? 0.5 : 1 }}
               >
                 Next
               </button>

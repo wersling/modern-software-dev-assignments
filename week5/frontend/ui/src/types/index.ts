@@ -1,9 +1,25 @@
 // Types matching backend Pydantic models
+
+export interface Tag {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface TagCreate {
+  name: string;
+}
+
+export interface TagAttach {
+  tag_ids: number[];
+}
+
 export interface Note {
   id: number;
   title: string;
   content: string;
   created_at: string;
+  tags: Tag[];
 }
 
 export interface NoteCreate {

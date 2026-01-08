@@ -12,7 +12,9 @@ Minimal full‑stack starter for experimenting with autonomous coding agents.
 
 ### Notes
 - ✅ Create, read, update, delete notes
-- ✅ Full-text search
+- ✅ Full-text search with pagination
+- ✅ Tag-based filtering and management
+- ✅ Attach/detach multiple tags to notes
 - ✅ Optimistic UI updates
 - ✅ Real-time form validation
 
@@ -22,6 +24,14 @@ Minimal full‑stack starter for experimenting with autonomous coding agents.
 - ✅ Bulk complete multiple items
 - ✅ Optimistic UI updates
 - ✅ Enhanced validation (1-1000 characters)
+
+### Tags
+- ✅ Create, list, and delete tags
+- ✅ Many-to-many relationship with notes
+- ✅ Visual tag chips with color coding
+- ✅ Multi-tag filtering (AND/OR modes)
+- ✅ Tag search and management UI
+- ✅ Cascade delete protection
 
 ## Quickstart
 
@@ -79,23 +89,24 @@ make run
 ```
 backend/                # FastAPI application
 ├── app/
-│   ├── routers/       # API endpoints
-│   ├── models.py      # SQLAlchemy models
-│   ├── schemas.py     # Pydantic schemas
+│   ├── routers/       # API endpoints (notes, action-items, tags)
+│   ├── models.py      # SQLAlchemy models (Note, ActionItem, Tag)
+│   ├── schemas.py     # Pydantic schemas for request/response validation
 │   └── db.py          # Database configuration
-└── tests/             # Backend tests
+└── tests/             # Backend tests (54 tests for tags, 22 for notes, etc.)
 
 frontend/              # Frontend assets
 ├── ui/                # Vite + React application
 │   ├── src/
-│   │   ├── components/  # React components
-│   │   ├── services/    # API client
+│   │   ├── components/  # React components (Notes, ActionItems, Tags)
+│   │   ├── services/    # API client (notes, action-items, tags)
 │   │   └── types/       # TypeScript types
 │   └── dist/            # Production build (served by FastAPI)
 └── MIGRATION_SUMMARY.md
 
 data/                  # SQLite database + seed data
 docs/                  # TASKS.md for agent-driven workflows
+└── archive/           # Historical implementation docs
 ```
 
 ## Tests
@@ -103,8 +114,14 @@ docs/                  # TASKS.md for agent-driven workflows
 ### Backend Tests
 
 ```bash
-make test
+make test              # Run all backend tests
 ```
+
+Current test coverage:
+- Tags: 54 tests ✅
+- Notes: 22 tests ✅
+- Action Items: 15 tests ✅
+- Total: 91 tests passing
 
 ### Frontend Tests
 
@@ -112,6 +129,11 @@ make test
 make web-test          # Run tests
 make web-test-ui       # Run tests with UI
 ```
+
+Current test coverage:
+- Tag components: 13 tests ✅
+- Note components: 4 tests ✅
+- ActionItem components: 2 tests ✅
 
 ## Formatting/Linting
 

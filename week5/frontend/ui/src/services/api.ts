@@ -28,7 +28,12 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 // Notes API
 export const notesApi = {
-  list: () => fetchJSON<Note[]>('/notes/'),
+  list: (tagId?: number) => {
+    const url = tagId === undefined
+      ? '/notes/'
+      : `/notes/?tag_id=${tagId}`;
+    return fetchJSON<Note[]>(url);
+  },
 
   create: (note: NoteCreate) =>
     fetchJSON<Note>('/notes/', {

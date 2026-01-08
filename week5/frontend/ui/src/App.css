@@ -101,6 +101,260 @@
   color: #666;
 }
 
+/* Tags display */
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.tag-chip {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  cursor: default;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tag-chip[title*="Filter by tag"] {
+  cursor: pointer;
+}
+
+.tag-chip[title*="Filter by tag"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-chip:active {
+  transform: translateY(0);
+}
+
+/* Tag Filter Component */
+.tag-filter {
+  user-select: none;
+}
+
+.tag-filter-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.filter-mode-selector {
+  display: flex;
+  gap: 5px;
+  background: #fff;
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.filter-mode-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #495057;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.filter-mode-btn:hover:not(:disabled) {
+  background: #e9ecef;
+}
+
+.filter-mode-btn.active {
+  background: #007bff;
+  color: #fff;
+}
+
+.filter-mode-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-clear-filters {
+  padding: 6px 12px;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  background: #dc3545;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-filters:hover:not(:disabled) {
+  background: #c82333;
+  border-color: #bd2130;
+}
+
+.btn-clear-filters:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.active-filters-indicator {
+  padding: 8px 12px;
+  background: #e7f3ff;
+  border: 1px solid #b3d7ff;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: #004085;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-filter-chip {
+  padding: 6px 14px;
+  border: 2px solid;
+  border-radius: 16px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tag-filter-chip:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.tag-filter-chip.selected {
+  background: #e7f3ff;
+  border-color: #007bff;
+  font-weight: 600;
+}
+
+.tag-filter-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tag Manager Component */
+.tag-manager {
+  user-select: none;
+}
+
+.btn-toggle-manager {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #495057;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-manager:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.tag-create-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.tag-create-form input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.tag-create-form button {
+  padding: 8px 16px;
+  border: 1px solid #28a745;
+  border-radius: 4px;
+  background: #28a745;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tag-create-form button:hover:not(:disabled) {
+  background: #218838;
+  border-color: #1e7e34;
+}
+
+.tag-create-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tags-list-manager h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.tag-manager-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid #dee2e6;
+}
+
+.tag-manager-item span {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.btn-delete-tag {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #dc3545;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-tag:hover:not(:disabled) {
+  background: #dc3545;
+  color: #fff;
+}
+
+.btn-delete-tag:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Action Items List */
 .action-items-list {
   list-style: none;
