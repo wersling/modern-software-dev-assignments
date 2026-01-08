@@ -18,8 +18,10 @@ Minimal full‑stack starter for experimenting with autonomous coding agents.
 
 ### Action Items
 - ✅ Create, list, and complete action items
-- ✅ Status tracking (open/done)
+- ✅ Filter by status (All/Active/Completed)
+- ✅ Bulk complete multiple items
 - ✅ Optimistic UI updates
+- ✅ Enhanced validation (1-1000 characters)
 
 ## Quickstart
 

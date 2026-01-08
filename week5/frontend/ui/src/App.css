@@ -173,10 +173,118 @@
   opacity: 0.7;
 }
 
+.action-item-card.selected {
+  border-color: #4dabf7;
+  background: #f8f9fa;
+}
+
+.action-item-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Action Items Controls */
+.action-items-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: #fff;
+  color: #495057;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.filter-btn.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.selected-count {
+  font-size: 0.9rem;
+  color: #495057;
+  font-weight: 500;
+}
+
+.bulk-complete-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #28a745;
+  border-radius: 4px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bulk-complete-btn:hover:not(:disabled) {
+  background: #218838;
+  border-color: #1e7e34;
+}
+
+.bulk-complete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Loading and error states */
 .notes-section p,
 .action-items-section p {
   margin: 0.5rem 0;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+}
+
+.error {
+  padding: 1rem;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  color: #721c24;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  font-style: italic;
 }
 
 /* Responsive design */
@@ -189,6 +297,27 @@
   .note-form,
   .action-item-form {
     flex-direction: column;
+  }
+
+  .action-items-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-buttons {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .filter-btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .bulk-actions {
+    justify-content: center;
+    width: 100%;
   }
 
   .action-item-card article {

@@ -14,3 +14,160 @@ def test_create_and_complete_action_item(client):
     assert r.status_code == 200
     items = r.json()
     assert len(items) == 1
+
+
+def test_list_action_items_filter_by_completed(client):
+    """Test filtering action items by completion status."""
+    # Create three items
+    items_data = [
+        {"description": "Task 1"},
+        {"description": "Task 2"},
+        {"description": "Task 3"},
+    ]
+
+    created_ids = []
+    for payload in items_data:
+        r = client.post("/action-items/", json=payload)
+        assert r.status_code == 201, r.text
+        created_ids.append(r.json()["id"])
+
+    # Complete one item
+    r = client.put(f"/action-items/{created_ids[0]}/complete")
+    assert r.status_code == 200
+
+    # Test filter: completed=true
+    r = client.get("/action-items/?completed=true")
+    assert r.status_code == 200
+    completed_items = r.json()
+    assert len(completed_items) == 1
+    assert completed_items[0]["completed"] is True
+    assert completed_items[0]["id"] == created_ids[0]
+
+    # Test filter: completed=false
+    r = client.get("/action-items/?completed=false")
+    assert r.status_code == 200
+    incomplete_items = r.json()
+    assert len(incomplete_items) == 2
+    assert all(item["completed"] is False for item in incomplete_items)
+
+    # Test no filter (should return all)
+    r = client.get("/action-items/")
+    assert r.status_code == 200
+    all_items = r.json()
+    assert len(all_items) == 3
+
+
+def test_bulk_complete_action_items(client):
+    """Test bulk completing multiple action items."""
+    # Create four items
+    items_data = [
+        {"description": "Task 1"},
+        {"description": "Task 2"},
+        {"description": "Task 3"},
+        {"description": "Task 4"},
+    ]
+
+    created_ids = []
+    for payload in items_data:
+        r = client.post("/action-items/", json=payload)
+        assert r.status_code == 201, r.text
+        created_ids.append(r.json()["id"])
+
+    # Bulk complete first three items
+    bulk_payload = {"ids": created_ids[:3]}
+    r = client.post("/action-items/bulk-complete", json=bulk_payload)
+    assert r.status_code == 200
+    response = r.json()
+
+    # Verify response structure
+    assert "updated" in response
+    assert "total_updated" in response
+    assert "not_found" in response
+    assert response["total_updated"] == 3
+    assert len(response["updated"]) == 3
+    assert all(item["completed"] is True for item in response["updated"])
+    assert response["not_found"] == []
+
+    # Verify fourth item is still incomplete
+    r = client.get("/action-items/")
+    assert r.status_code == 200
+    all_items = r.json()
+    completed_items = [item for item in all_items if item["completed"] is True]
+    incomplete_items = [item for item in all_items if item["completed"] is False]
+
+    assert len(completed_items) == 3
+    assert len(incomplete_items) == 1
+    assert incomplete_items[0]["id"] == created_ids[3]
+
+
+def test_bulk_complete_with_some_invalid_ids(client):
+    """Test bulk complete with some IDs that don't exist."""
+    # Create two items
+    item1 = client.post("/action-items/", json={"description": "Task 1"}).json()
+    item2 = client.post("/action-items/", json={"description": "Task 2"}).json()
+
+    # Try to complete with some non-existent IDs
+    bulk_payload = {"ids": [item1["id"], 99999, 88888, item2["id"]]}
+    r = client.post("/action-items/bulk-complete", json=bulk_payload)
+    assert r.status_code == 200
+    response = r.json()
+
+    # Should update only the two existing items
+    assert response["total_updated"] == 2
+    assert len(response["updated"]) == 2
+    assert response["not_found"] == [99999, 88888]
+
+    # Verify the items were actually completed
+    r = client.get("/action-items/")
+    all_items = r.json()
+    assert all(item["completed"] is True for item in all_items)
+
+
+def test_bulk_complete_validation(client):
+    """Test bulk complete request validation."""
+    # Test empty list
+    r = client.post("/action-items/bulk-complete", json={"ids": []})
+    assert r.status_code == 422  # Validation error
+
+    # Test invalid IDs (zero or negative)
+    r = client.post("/action-items/bulk-complete", json={"ids": [1, -1, 0]})
+    assert r.status_code == 422  # Validation error
+
+
+def test_bulk_complete_exceeds_limit(client):
+    """Test bulk complete with more than MAX_BULK_ITEMS."""
+    # Create a payload with 1001 IDs (exceeds MAX_BULK_ITEMS=1000)
+    bulk_payload = {"ids": list(range(1, 1002))}
+    r = client.post("/action-items/bulk-complete", json=bulk_payload)
+    assert r.status_code == 400
+    assert "Cannot bulk complete more than 1000 items" in r.json()["detail"]
+
+
+def test_create_action_item_validation(client):
+    """Test action item creation validation."""
+    # Test empty description
+    r = client.post("/action-items/", json={"description": ""})
+    assert r.status_code == 422  # Validation error
+
+    # Test whitespace-only description
+    r = client.post("/action-items/", json={"description": "   "})
+    assert r.status_code == 422  # Validation error
+
+    # Test description exceeding max length
+    r = client.post("/action-items/", json={"description": "a" * 1001})
+    assert r.status_code == 422  # Validation error
+
+    # Test valid description with leading/trailing whitespace
+    r = client.post("/action-items/", json={"description": "  Valid task  "})
+    assert r.status_code == 201
+    item = r.json()
+    assert item["description"] == "Valid task"  # Whitespace stripped
+
+
+def test_create_action_item_max_length(client):
+    """Test action item with exactly 1000 characters."""
+    description = "a" * 1000
+    r = client.post("/action-items/", json={"description": description})
+    assert r.status_code == 201
+    item = r.json()
+    assert item["description"] == description

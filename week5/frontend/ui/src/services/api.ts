@@ -1,4 +1,12 @@
-import type { ActionItem, ActionItemCreate, Note, NoteCreate, NoteUpdate } from '../types';
+import type {
+  ActionItem,
+  ActionItemBulkCompleteRequest,
+  ActionItemBulkCompleteResponse,
+  ActionItemCreate,
+  Note,
+  NoteCreate,
+  NoteUpdate,
+} from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -56,7 +64,12 @@ export const notesApi = {
 
 // Action Items API
 export const actionItemsApi = {
-  list: () => fetchJSON<ActionItem[]>('/action-items/'),
+  list: (completed?: boolean) => {
+    const url = completed === undefined
+      ? '/action-items/'
+      : `/action-items/?completed=${completed}`;
+    return fetchJSON<ActionItem[]>(url);
+  },
 
   create: (item: ActionItemCreate) =>
     fetchJSON<ActionItem>('/action-items/', {
@@ -68,5 +81,12 @@ export const actionItemsApi = {
   complete: (id: number) =>
     fetchJSON<ActionItem>(`/action-items/${id}/complete`, {
       method: 'PUT',
+    }),
+
+  bulkComplete: (request: ActionItemBulkCompleteRequest) =>
+    fetchJSON<ActionItemBulkCompleteResponse>('/action-items/bulk-complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
     }),
 };

@@ -1,6 +1,6 @@
 # 仓库任务清单
 
-## 1) 将前端迁移到 Vite + React（复杂）
+## 1) 将前端迁移到 Vite + React（复杂）- 已完成
 - 在 `week5/frontend/`（或子文件夹如 `week5/frontend/ui/`）中搭建 Vite + React 应用。
 - 将当前的静态资源替换为由 FastAPI 提供的构建包：
   - 构建到 `week5/frontend/dist/`。
@@ -11,7 +11,7 @@
 - 更新 `Makefile`，添加以下目标：`web-install`、`web-dev`、`web-build`，并确保 `make run` 自动构建 Web 包（或在文档中说明工作流程）。
 - 为至少两个组件添加组件/单元测试（React Testing Library），并在 `backend/tests` 中添加集成测试以确保 API 兼容性。
 
-## 2) 带分页和排序的笔记搜索（中等）
+## 2) 带分页和排序的笔记搜索（中等）- 已完成
 - 实现 `GET /notes/search?q=...&page=1&page_size=10&sort=created_desc|title_asc`。
 - 对标题/内容使用不区分大小写的匹配。
 - 返回包含 `items`、`total`、`page`、`page_size` 的有效载荷。
@@ -19,13 +19,13 @@
 - 更新 React UI，添加搜索输入框、结果计数和上一页/下一页分页控制。
 - 在 `backend/tests/test_notes.py` 中为查询边界情况和分页添加测试。
 
-## 3) 完整的笔记 CRUD 操作与乐观 UI 更新（中等）
+## 3) 完整的笔记 CRUD 操作与乐观 UI 更新（中等）- 已完成
 - 添加 `PUT /notes/{id}` 和 `DELETE /notes/{id}`。
 - 在前端中乐观地更新状态，同时处理错误回滚。
 - 在 `schemas.py` 中验证有效载荷（合理设置最小长度、最大长度）。
 - 添加成功和验证错误的测试。
 
-## 4) 行动项：过滤器和批量完成（中等）
+## 4) 行动项：过滤器和批量完成（中等）- 进行中
 - 添加 `GET /action-items?completed=true|false` 以按完成状态过滤。
 - 添加 `POST /action-items/bulk-complete`，接受 ID 列表并在事务中标记为已完成。
 - 更新前端，添加过滤器切换和批量操作 UI。

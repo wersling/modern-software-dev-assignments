@@ -4,9 +4,18 @@ import type { ActionItem } from '../../types';
 interface ActionItemCardProps {
   item: ActionItem;
   onComplete: (id: number) => Promise<void>;
+  isSelected?: boolean;
+  onToggleSelect?: (id: number) => void;
+  showCheckbox?: boolean;
 }
 
-export function ActionItemCard({ item, onComplete }: ActionItemCardProps) {
+export function ActionItemCard({
+  item,
+  onComplete,
+  isSelected = false,
+  onToggleSelect,
+  showCheckbox = false,
+}: ActionItemCardProps) {
   const [isCompleting, setIsCompleting] = useState(false);
 
   const handleComplete = async () => {
@@ -27,8 +36,17 @@ export function ActionItemCard({ item, onComplete }: ActionItemCardProps) {
   const formatDate = new Date(item.created_at).toLocaleString();
 
   return (
-    <li className={`action-item-card ${item.completed ? 'completed' : ''}`}>
+    <li className={`action-item-card ${item.completed ? 'completed' : ''} ${isSelected ? 'selected' : ''}`}>
       <article>
+        {showCheckbox && !item.completed && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect?.(item.id)}
+            className="action-item-checkbox"
+            aria-label={`Select ${item.description}`}
+          />
+        )}
         <span className={`status ${item.completed ? 'done' : 'open'}`}>
           [{item.completed ? 'done' : 'open'}]
         </span>

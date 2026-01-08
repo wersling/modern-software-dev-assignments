@@ -26,5 +26,8 @@ class ActionItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     description = Column(Text, nullable=False)
-    completed = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed = Column(Boolean, default=False, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Additional composite indexes for common query patterns
+    __table_args__ = (Index("ix_action_items_created_at_desc", created_at.desc()),)
