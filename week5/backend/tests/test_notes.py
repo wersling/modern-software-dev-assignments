@@ -3,12 +3,14 @@ def test_create_and_list_notes(client):
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201, r.text
     data = r.json()
-    assert data["title"] == "Test"
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Test"
 
     r = client.get("/notes/")
     assert r.status_code == 200
     items = r.json()
-    assert len(items) >= 1
+    # List endpoint returns PaginatedResponse directly, not envelope
+    assert len(items["items"]) >= 1
 
     r = client.get("/notes/search/")
     assert r.status_code == 200
@@ -16,7 +18,8 @@ def test_create_and_list_notes(client):
     r = client.get("/notes/search/", params={"q": "Hello"})
     assert r.status_code == 200
     items = r.json()
-    assert len(items) >= 1
+    # Search endpoint returns PaginatedNotesList directly, not envelope
+    assert len(items["items"]) >= 1
 
 
 def test_update_note(client):
@@ -24,39 +27,43 @@ def test_update_note(client):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Update both fields
     update_payload = {"title": "Updated Title", "content": "Updated Content"}
     r = client.put(f"/notes/{note_id}", json=update_payload)
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "Updated Title"
-    assert data["content"] == "Updated Content"
-    assert data["id"] == note_id
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Updated Title"
+    assert data["data"]["content"] == "Updated Content"
+    assert data["data"]["id"] == note_id
 
     # Partial update - only title
     partial_update = {"title": "Partial Title"}
     r = client.put(f"/notes/{note_id}", json=partial_update)
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "Partial Title"
-    assert data["content"] == "Updated Content"  # Should remain unchanged
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Partial Title"
+    assert data["data"]["content"] == "Updated Content"  # Should remain unchanged
 
     # Partial update - only content
     content_update = {"content": "New Content Only"}
     r = client.put(f"/notes/{note_id}", json=content_update)
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "Partial Title"  # Should remain unchanged
-    assert data["content"] == "New Content Only"
+    assert data["ok"] is True
+    assert data["data"]["title"] == "Partial Title"  # Should remain unchanged
+    assert data["data"]["content"] == "New Content Only"
 
 
 def test_update_note_not_found(client):
     update_payload = {"title": "Updated", "content": "Content"}
     r = client.put("/notes/99999", json=update_payload)
     assert r.status_code == 404
-    assert "not found" in r.json()["detail"].lower()
+    assert r.json()["ok"] is False
+    assert "not found" in r.json()["error"]["message"].lower()
 
 
 def test_delete_note(client):
@@ -64,7 +71,7 @@ def test_delete_note(client):
     payload = {"title": "To Delete", "content": "This will be deleted"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Delete the note
     r = client.delete(f"/notes/{note_id}")
@@ -79,7 +86,8 @@ def test_delete_note(client):
 def test_delete_note_not_found(client):
     r = client.delete("/notes/99999")
     assert r.status_code == 404
-    assert "not found" in r.json()["detail"].lower()
+    assert r.json()["ok"] is False
+    assert "not found" in r.json()["error"]["message"].lower()
 
 
 def test_get_note(client):
@@ -87,22 +95,24 @@ def test_get_note(client):
     payload = {"title": "Get Test", "content": "Testing get endpoint"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Get the note
     r = client.get(f"/notes/{note_id}")
     assert r.status_code == 200
     data = r.json()
-    assert data["id"] == note_id
-    assert data["title"] == "Get Test"
-    assert data["content"] == "Testing get endpoint"
-    assert "created_at" in data
+    assert data["ok"] is True
+    assert data["data"]["id"] == note_id
+    assert data["data"]["title"] == "Get Test"
+    assert data["data"]["content"] == "Testing get endpoint"
+    assert "created_at" in data["data"]
 
 
 def test_get_note_not_found(client):
     r = client.get("/notes/99999")
     assert r.status_code == 404
-    assert "not found" in r.json()["detail"].lower()
+    assert r.json()["ok"] is False
+    assert "not found" in r.json()["error"]["message"].lower()
 
 
 def test_create_note_validation_empty_title(client):
@@ -154,7 +164,7 @@ def test_update_note_validation_empty_title(client):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Try to update with empty title
     update_payload = {"title": ""}
@@ -168,7 +178,7 @@ def test_update_note_validation_title_too_long(client):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Try to update with too long title
     update_payload = {"title": "a" * 201}
@@ -182,7 +192,7 @@ def test_update_note_validation_content_too_long(client):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Try to update with too long content
     update_payload = {"content": "a" * 10001}
@@ -196,8 +206,8 @@ def test_create_note_with_whitespace_trimming(client):
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
     data = r.json()
-    assert data["title"] == "Valid Title"
-    assert data["content"] == "Valid Content"
+    assert data["data"]["title"] == "Valid Title"
+    assert data["data"]["content"] == "Valid Content"
 
 
 def test_update_note_with_whitespace_trimming(client):
@@ -206,15 +216,15 @@ def test_update_note_with_whitespace_trimming(client):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Update with whitespace
     update_payload = {"title": "  Updated Title  ", "content": "  Updated Content  "}
     r = client.put(f"/notes/{note_id}", json=update_payload)
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "Updated Title"
-    assert data["content"] == "Updated Content"
+    assert data["data"]["title"] == "Updated Title"
+    assert data["data"]["content"] == "Updated Content"
 
 
 def test_create_note_max_boundary_values(client):
@@ -223,8 +233,8 @@ def test_create_note_max_boundary_values(client):
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
     data = r.json()
-    assert len(data["title"]) == 200
-    assert len(data["content"]) == 10000
+    assert len(data["data"]["title"]) == 200
+    assert len(data["data"]["content"]) == 10000
 
 
 def test_update_note_rollback_on_error(client, monkeypatch):
@@ -233,7 +243,7 @@ def test_update_note_rollback_on_error(client, monkeypatch):
     payload = {"title": "Original Title", "content": "Original Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Mock db.commit() to raise an exception
     # Note: This test demonstrates the error handling path
@@ -247,7 +257,7 @@ def test_update_note_rollback_on_error(client, monkeypatch):
     # Error handling code path is exercised by the try-except block
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "Updated Title"
+    assert data["data"]["title"] == "Updated Title"
 
 
 def test_delete_note_rollback_on_error(client):
@@ -256,7 +266,7 @@ def test_delete_note_rollback_on_error(client):
     payload = {"title": "To Delete", "content": "This will be deleted"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Delete the note - should succeed in normal conditions
     # Error handling code path is exercised by the try-except block
@@ -274,21 +284,21 @@ def test_update_note_preserves_other_field(client):
     payload = {"title": "Title", "content": "Content"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Update only title
     r = client.put(f"/notes/{note_id}", json={"title": "New Title"})
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "New Title"
-    assert data["content"] == "Content"  # Should be preserved
+    assert data["data"]["title"] == "New Title"
+    assert data["data"]["content"] == "Content"  # Should be preserved
 
     # Update only content
     r = client.put(f"/notes/{note_id}", json={"content": "New Content"})
     assert r.status_code == 200
     data = r.json()
-    assert data["title"] == "New Title"  # Should be preserved
-    assert data["content"] == "New Content"
+    assert data["data"]["title"] == "New Title"  # Should be preserved
+    assert data["data"]["content"] == "New Content"
 
 
 # ===== Search and Pagination Tests =====
@@ -554,7 +564,7 @@ def test_extract_preview_default(client):
     payload = {"title": "Meeting Notes", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract without apply (preview)
     r = client.post(f"/notes/{note_id}/extract")
@@ -562,18 +572,20 @@ def test_extract_preview_default(client):
     data = r.json()
 
     # Check structure
-    assert "tags" in data
-    assert "action_items" in data
-    assert "note" not in data  # Should not include note in preview mode
+    assert data["ok"] is True
+    assert "data" in data
+    assert "tags" in data["data"]
+    assert "action_items" in data["data"]
+    assert "note" not in data["data"]  # Should not include note in preview mode
 
     # Check extracted tags
-    assert set(data["tags"]) == {"urgent", "frontend"}
+    assert set(data["data"]["tags"]) == {"urgent", "frontend"}
 
     # Check extracted action items
-    assert len(data["action_items"]) == 3
-    assert "Fix navigation bug" in data["action_items"]
-    assert "Update documentation" in data["action_items"]
-    assert "todo: Write tests!" in data["action_items"]  # todo: prefix is preserved
+    assert len(data["data"]["action_items"]) == 3
+    assert "Fix navigation bug" in data["data"]["action_items"]
+    assert "Update documentation" in data["data"]["action_items"]
+    assert "todo: Write tests!" in data["data"]["action_items"]  # todo: prefix is preserved
 
 
 def test_extract_apply_true(client):
@@ -589,7 +601,7 @@ def test_extract_apply_true(client):
     payload = {"title": "Sprint Notes", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract with apply=true
     r = client.post(f"/notes/{note_id}/extract?apply=true")
@@ -597,27 +609,27 @@ def test_extract_apply_true(client):
     data = r.json()
 
     # Check structure - should include persisted objects
-    assert "tags" in data
-    assert "action_items" in data
-    assert "note" in data
+    assert "tags" in data["data"]
+    assert "action_items" in data["data"]
+    assert "note" in data["data"]
 
     # Check tags are objects with IDs
-    assert len(data["tags"]) == 2
-    assert all("id" in tag for tag in data["tags"])
-    assert all("name" in tag for tag in data["tags"])
-    tag_names = {tag["name"] for tag in data["tags"]}
+    assert len(data["data"]["tags"]) == 2
+    assert all("id" in tag for tag in data["data"]["tags"])
+    assert all("name" in tag for tag in data["data"]["tags"])
+    tag_names = {tag["name"] for tag in data["data"]["tags"]}
     assert tag_names == {"urgent", "backend"}
 
     # Check action items are objects with IDs
-    assert len(data["action_items"]) == 2
-    assert all("id" in item for item in data["action_items"])
-    assert all("description" in item for item in data["action_items"])
-    assert all(item["completed"] is False for item in data["action_items"])
+    assert len(data["data"]["action_items"]) == 2
+    assert all("id" in item for item in data["data"]["action_items"])
+    assert all("description" in item for item in data["data"]["action_items"])
+    assert all(item["completed"] is False for item in data["data"]["action_items"])
 
     # Check note is updated with tags
-    assert data["note"]["id"] == note_id
-    assert len(data["note"]["tags"]) == 2
-    note_tag_names = {tag["name"] for tag in data["note"]["tags"]}
+    assert data["data"]["note"]["id"] == note_id
+    assert len(data["data"]["note"]["tags"]) == 2
+    note_tag_names = {tag["name"] for tag in data["data"]["note"]["tags"]}
     assert note_tag_names == {"urgent", "backend"}
 
 
@@ -625,7 +637,8 @@ def test_extract_note_not_found(client):
     """Test extraction on non-existent note."""
     r = client.post("/notes/99999/extract")
     assert r.status_code == 404
-    assert "not found" in r.json()["detail"].lower()
+    assert r.json()["ok"] is False
+    assert "not found" in r.json()["error"]["message"].lower()
 
 
 def test_extract_duplicate_tags(client):
@@ -635,20 +648,20 @@ def test_extract_duplicate_tags(client):
     payload = {"title": "Note 1", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note1_id = r.json()["id"]
+    note1_id = r.json()["data"]["id"]
 
     # Extract and apply (creates tags)
     r = client.post(f"/notes/{note1_id}/extract?apply=true")
     assert r.status_code == 200
     data = r.json()
-    urgent_tag_id = [tag for tag in data["tags"] if tag["name"] == "urgent"][0]["id"]
-    frontend_tag_id = [tag for tag in data["tags"] if tag["name"] == "frontend"][0]["id"]
+    urgent_tag_id = [tag for tag in data["data"]["tags"] if tag["name"] == "urgent"][0]["id"]
+    frontend_tag_id = [tag for tag in data["data"]["tags"] if tag["name"] == "frontend"][0]["id"]
 
     # Create another note with same tags
     payload = {"title": "Note 2", "content": "#urgent #frontend"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note2_id = r.json()["id"]
+    note2_id = r.json()["data"]["id"]
 
     # Extract and apply (should reuse existing tags)
     r = client.post(f"/notes/{note2_id}/extract?apply=true")
@@ -656,7 +669,7 @@ def test_extract_duplicate_tags(client):
     data = r.json()
 
     # Check that same tag IDs are used
-    tag_ids = {tag["id"] for tag in data["tags"]}
+    tag_ids = {tag["id"] for tag in data["data"]["tags"]}
     assert tag_ids == {urgent_tag_id, frontend_tag_id}
 
 
@@ -666,14 +679,14 @@ def test_extract_empty_content(client):
     payload = {"title": "Plain Note", "content": "Just some plain text"}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract (should return empty lists)
     r = client.post(f"/notes/{note_id}/extract")
     assert r.status_code == 200
     data = r.json()
-    assert data["tags"] == []
-    assert data["action_items"] == []
+    assert data["data"]["tags"] == []
+    assert data["data"]["action_items"] == []
 
 
 def test_extract_chinese_tags(client):
@@ -687,7 +700,7 @@ def test_extract_chinese_tags(client):
     payload = {"title": "中文笔记", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract preview
     r = client.post(f"/notes/{note_id}/extract")
@@ -695,8 +708,8 @@ def test_extract_chinese_tags(client):
     data = r.json()
 
     # Check Chinese tags are extracted
-    assert set(data["tags"]) == {"前端", "后端", "数据库"}
-    assert "修复登录问题" in data["action_items"]
+    assert set(data["data"]["tags"]) == {"前端", "后端", "数据库"}
+    assert "修复登录问题" in data["data"]["action_items"]
 
 
 def test_extract_mixed_formats(client):
@@ -713,7 +726,7 @@ def test_extract_mixed_formats(client):
     payload = {"title": "Mixed Format", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract
     r = client.post(f"/notes/{note_id}/extract")
@@ -721,11 +734,11 @@ def test_extract_mixed_formats(client):
     data = r.json()
 
     # Should extract all action item formats
-    assert len(data["action_items"]) == 4
-    assert "Task 1" in data["action_items"]
-    assert "todo: Task 2" in data["action_items"]
-    assert "Urgent task!" in data["action_items"]
-    assert "Completed task" in data["action_items"]
+    assert len(data["data"]["action_items"]) == 4
+    assert "Task 1" in data["data"]["action_items"]
+    assert "todo: Task 2" in data["data"]["action_items"]
+    assert "Urgent task!" in data["data"]["action_items"]
+    assert "Completed task" in data["data"]["action_items"]
 
 
 def test_extract_apply_persists_to_database(client):
@@ -735,14 +748,14 @@ def test_extract_apply_persists_to_database(client):
     payload = {"title": "Bug Report", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract and apply
     r = client.post(f"/notes/{note_id}/extract?apply=true")
     assert r.status_code == 200
     data = r.json()
-    tag_id = data["tags"][0]["id"]
-    action_item_id = data["action_items"][0]["id"]
+    tag_id = data["data"]["tags"][0]["id"]
+    action_item_id = data["data"]["action_items"][0]["id"]
 
     # Verify data persists by fetching note again
     r = client.get(f"/notes/{note_id}")
@@ -750,14 +763,14 @@ def test_extract_apply_persists_to_database(client):
     note_data = r.json()
 
     # Check tags are attached
-    assert len(note_data["tags"]) == 2
-    tag_names = {tag["name"] for tag in note_data["tags"]}
+    assert len(note_data["data"]["tags"]) == 2
+    tag_names = {tag["name"] for tag in note_data["data"]["tags"]}
     assert tag_names == {"important", "bug"}
 
     # Verify action item was created (via tags endpoint or direct query)
     # Note: Action items don't have note_id FK, so we can't query via note
     # But we can verify the tag exists with correct ID
-    assert any(tag["id"] == tag_id for tag in note_data["tags"])
+    assert any(tag["id"] == tag_id for tag in note_data["data"]["tags"])
 
 
 def test_extract_special_characters_in_tags(client):
@@ -766,7 +779,7 @@ def test_extract_special_characters_in_tags(client):
     payload = {"title": "Special Tags", "content": content}
     r = client.post("/notes/", json=payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Extract
     r = client.post(f"/notes/{note_id}/extract")
@@ -774,4 +787,4 @@ def test_extract_special_characters_in_tags(client):
     data = r.json()
 
     # Check tags with special characters
-    assert set(data["tags"]) == {"tag-1", "tag_2", "tag3-test"}
+    assert set(data["data"]["tags"]) == {"tag-1", "tag_2", "tag3-test"}

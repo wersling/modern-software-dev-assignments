@@ -220,6 +220,85 @@ class TagAttach(BaseModel):
 
 
 # =============================================================================
+# Envelope Response Schemas
+# =============================================================================
+
+
+class EnvelopeErrorDetail(BaseModel):
+    """Error detail for envelope error responses.
+
+    This structure provides consistent error information across all endpoints.
+    """
+
+    code: str = Field(..., description="Error code (e.g., 'NOT_FOUND', 'VALIDATION_ERROR')")
+    message: str = Field(..., description="Human-readable error message")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "NOT_FOUND",
+                    "message": "Note with id=999 not found",
+                }
+            ]
+        }
+    )
+
+
+class EnvelopeErrorResponse(BaseModel):
+    """Standard error response envelope.
+
+    All error responses follow this structure for consistent client-side handling.
+
+    Example:
+        {
+            "ok": false,
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "Note with id=999 not found"
+            }
+        }
+    """
+
+    ok: bool = Field(False, description="Always false for error responses")
+    error: EnvelopeErrorDetail = Field(..., description="Error details")
+
+
+class EnvelopeResponse(BaseModel, Generic[T]):
+    """Standard success response envelope.
+
+    All success responses follow this structure for consistent client-side handling.
+
+    Type Parameters:
+        T: The type of data being returned
+
+    Example:
+        {
+            "ok": true,
+            "data": {
+                "id": 1,
+                "title": "Note Title",
+                "content": "Note Content"
+            }
+        }
+    """
+
+    ok: bool = Field(True, description="Always true for success responses")
+    data: T = Field(..., description="Response data")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "ok": True,
+                    "data": {"id": 1, "title": "Example", "content": "Content"},
+                }
+            ]
+        }
+    )
+
+
+# =============================================================================
 # Extraction Schemas
 # =============================================================================
 

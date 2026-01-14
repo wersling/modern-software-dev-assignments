@@ -1,17 +1,19 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
+from ..exceptions import BadRequestException, NotFoundException
 from ..models import ActionItem
 from ..schemas import (
     ActionItemBulkComplete,
     ActionItemBulkCompleteResponse,
     ActionItemCreate,
     ActionItemRead,
+    EnvelopeResponse,
     PaginatedResponse,
 )
 from ..utils.pagination import (
@@ -86,31 +88,31 @@ def list_items(
     )
 
 
-@router.post("/", response_model=ActionItemRead, status_code=201)
-def create_item(payload: ActionItemCreate, db: Session = Depends(get_db)) -> ActionItemRead:
+@router.post("/", response_model=EnvelopeResponse[ActionItemRead], status_code=201)
+def create_item(payload: ActionItemCreate, db: Session = Depends(get_db)) -> dict:
     item = ActionItem(description=payload.description, completed=False)
     db.add(item)
     db.flush()
     db.refresh(item)
-    return ActionItemRead.model_validate(item)
+    return {"ok": True, "data": ActionItemRead.model_validate(item)}
 
 
-@router.put("/{item_id}/complete", response_model=ActionItemRead)
-def complete_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead:
+@router.put("/{item_id}/complete", response_model=EnvelopeResponse[ActionItemRead])
+def complete_item(item_id: int, db: Session = Depends(get_db)) -> dict:
     item = db.get(ActionItem, item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="Action item not found")
+        raise NotFoundException("ActionItem", f"id={item_id}")
     item.completed = True
     db.add(item)
     db.flush()
     db.refresh(item)
-    return ActionItemRead.model_validate(item)
+    return {"ok": True, "data": ActionItemRead.model_validate(item)}
 
 
-@router.post("/bulk-complete", response_model=ActionItemBulkCompleteResponse, status_code=200)
+@router.post("/bulk-complete", response_model=EnvelopeResponse[ActionItemBulkCompleteResponse], status_code=200)
 def bulk_complete_items(
     payload: ActionItemBulkComplete, db: Session = Depends(get_db)
-) -> ActionItemBulkCompleteResponse:
+) -> dict:
     """
     Bulk complete action items by marking them as completed.
 
@@ -127,10 +129,9 @@ def bulk_complete_items(
     """
     # Validate bulk operation size limit
     if len(payload.ids) > MAX_BULK_ITEMS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot bulk complete more than {MAX_BULK_ITEMS} items at once. "
-            f"Received {len(payload.ids)} items.",
+        raise BadRequestException(
+            f"Cannot bulk complete more than {MAX_BULK_ITEMS} items at once. "
+            f"Received {len(payload.ids)} items."
         )
 
     # Find all existing items
@@ -164,14 +165,14 @@ def bulk_complete_items(
             exc_info=True,
         )
         # Return generic error message to client
-        raise HTTPException(
-            status_code=500,
-            detail="Database error occurred while updating action items",
-        ) from e
+        raise BadRequestException("Database error occurred while updating action items") from e
 
     # Build response
-    return ActionItemBulkCompleteResponse(
-        updated=[ActionItemRead.model_validate(item) for item in updated_items],
-        total_updated=len(updated_items),
-        not_found=not_found_ids,
-    )
+    return {
+        "ok": True,
+        "data": ActionItemBulkCompleteResponse(
+            updated=[ActionItemRead.model_validate(item) for item in updated_items],
+            total_updated=len(updated_items),
+            not_found=not_found_ids,
+        ),
+    }

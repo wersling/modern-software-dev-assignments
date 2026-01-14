@@ -4,7 +4,9 @@ def test_create_and_list_tags(client):
     payload = {"name": "Python"}
     r = client.post("/tags/", json=payload)
     assert r.status_code == 201, r.text
-    data = r.json()
+    response = r.json()
+    assert response["ok"] is True
+    data = response["data"]
     assert data["name"] == "Python"
     assert "id" in data
     assert "created_at" in data
@@ -27,8 +29,10 @@ def test_create_tag_duplicate_name(client):
 
     # Try to create duplicate tag
     r = client.post("/tags/", json=payload)
-    assert r.status_code == 400
-    assert "already exists" in r.json()["detail"].lower()
+    assert r.status_code == 409
+    response = r.json()
+    assert response["ok"] is False
+    assert "already exists" in response["error"]["message"].lower()
 
 
 def test_create_tag_duplicate_name_case_insensitive(client):
@@ -41,8 +45,10 @@ def test_create_tag_duplicate_name_case_insensitive(client):
     # Try to create with different case
     payload2 = {"name": "DOCKER"}
     r = client.post("/tags/", json=payload2)
-    assert r.status_code == 400
-    assert "already exists" in r.json()["detail"].lower()
+    assert r.status_code == 409
+    response = r.json()
+    assert response["ok"] is False
+    assert "already exists" in response["error"]["message"].lower()
 
 
 def test_create_tag_validation(client):
@@ -92,7 +98,7 @@ def test_list_tags_ordering(client):
         payload = {"name": tag_name}
         r = client.post("/tags/", json=payload)
         assert r.status_code == 201
-        tag_ids.append(r.json()["id"])
+        tag_ids.append(r.json()["data"]["id"])
 
     # List tags - should be in reverse creation order
     r = client.get("/tags/")
@@ -115,7 +121,7 @@ def test_delete_tag(client):
     payload = {"name": "ToDelete"}
     r = client.post("/tags/", json=payload)
     assert r.status_code == 201
-    tag_id = r.json()["id"]
+    tag_id = r.json()["data"]["id"]
 
     # Delete the tag
     r = client.delete(f"/tags/{tag_id}")
@@ -132,7 +138,9 @@ def test_delete_tag_not_found(client):
     """Test deleting a non-existent tag."""
     r = client.delete("/tags/99999")
     assert r.status_code == 404
-    assert "not found" in r.json()["detail"].lower()
+    response = r.json()
+    assert response["ok"] is False
+    assert "not found" in response["error"]["message"].lower()
 
 
 def test_delete_tag_cascade(client):
@@ -142,7 +150,7 @@ def test_delete_tag_cascade(client):
     payload = {"name": "CascadeTest"}
     r = client.post("/tags/", json=payload)
     assert r.status_code == 201
-    tag_id = r.json()["id"]
+    tag_id = r.json()["data"]["id"]
 
     # Delete should succeed
     r = client.delete(f"/tags/{tag_id}")

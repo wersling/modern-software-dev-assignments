@@ -123,18 +123,18 @@ class TestNotesPagination:
         # Create tags
         tag1_response = client.post("/tags/", json={"name": "python"})
         assert tag1_response.status_code == 201
-        tag1_id = tag1_response.json()["id"]
+        tag1_id = tag1_response.json()["data"]["id"]
 
         tag2_response = client.post("/tags/", json={"name": "javascript"})
         assert tag2_response.status_code == 201
-        tag2_id = tag2_response.json()["id"]
+        tag2_id = tag2_response.json()["data"]["id"]
 
         # Create notes with different tags
         for i in range(30):
             payload = {"title": f"Note {i}", "content": f"Content {i}"}
             r = client.post("/notes/", json=payload)
             assert r.status_code == 201
-            note_id = r.json()["id"]
+            note_id = r.json()["data"]["id"]
 
             # Add tag1 to first 15 notes, tag2 to next 15 notes
             tag_id = tag1_id if i < 15 else tag2_id
@@ -161,14 +161,14 @@ class TestNotesPagination:
         # Create tag
         tag_response = client.post("/tags/", json={"name": "urgent"})
         assert tag_response.status_code == 201
-        tag_id = tag_response.json()["id"]
+        tag_id = tag_response.json()["data"]["id"]
 
         # Create notes with the tag
         for i in range(25):
             payload = {"title": f"Urgent Note {i}", "content": f"Content {i}"}
             r = client.post("/notes/", json=payload)
             assert r.status_code == 201
-            note_id = r.json()["id"]
+            note_id = r.json()["data"]["id"]
 
             r = client.post(f"/notes/{note_id}/tags", json={"tag_ids": [tag_id]})
             assert r.status_code == 200
@@ -284,7 +284,7 @@ class TestActionItemsPagination:
 
             # Mark half as completed
             if i % 2 == 0:
-                item_id = r.json()["id"]
+                item_id = r.json()["data"]["id"]
                 r = client.put(f"/action-items/{item_id}/complete")
                 assert r.status_code == 200
 
@@ -323,7 +323,7 @@ class TestActionItemsPagination:
             payload = {"description": f"Task {i}"}
             r = client.post("/action-items/", json=payload)
             assert r.status_code == 201
-            item_id = r.json()["id"]
+            item_id = r.json()["data"]["id"]
 
             # Mark first 10 as completed
             if i < 10:
@@ -352,7 +352,7 @@ class TestActionItemsPagination:
             payload = {"description": f"Task {i}"}
             r = client.post("/action-items/", json=payload)
             assert r.status_code == 201
-            item_id = r.json()["id"]
+            item_id = r.json()["data"]["id"]
 
             # Mark first 15 as completed
             if i < 15:
@@ -398,7 +398,7 @@ class TestActionItemsPagination:
         payload = {"description": "Test task"}
         r = client.post("/action-items/", json=payload)
         assert r.status_code == 201
-        item_id = r.json()["id"]
+        item_id = r.json()["data"]["id"]
 
         # Mark as completed
         r = client.put(f"/action-items/{item_id}/complete")

@@ -1,14 +1,16 @@
 import logging
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
+from ..exceptions import BadRequestException, ConflictException, NotFoundException
 from ..models import ActionItem, Note, Tag
 from ..schemas import (
     ActionItemRead,
+    EnvelopeResponse,
     ExtractApplyResponse,
     ExtractResponse,
     NoteCreate,
@@ -118,13 +120,13 @@ def list_notes(
     )
 
 
-@router.post("/", response_model=NoteRead, status_code=201)
-def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> NoteRead:
+@router.post("/", response_model=EnvelopeResponse[NoteRead], status_code=201)
+def create_note(payload: NoteCreate, db: Session = Depends(get_db)) -> dict:
     note = Note(title=payload.title, content=payload.content)
     db.add(note)
     db.flush()
     db.refresh(note)
-    return NoteRead.model_validate(note)
+    return {"ok": True, "data": NoteRead.model_validate(note)}
 
 
 @router.get("/search/", response_model=PaginatedNotesList)
@@ -234,19 +236,19 @@ def search_notes(
     )
 
 
-@router.get("/{note_id}", response_model=NoteRead)
-def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
+@router.get("/{note_id}", response_model=EnvelopeResponse[NoteRead])
+def get_note(note_id: int, db: Session = Depends(get_db)) -> dict:
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-    return NoteRead.model_validate(note)
+        raise NotFoundException("Note", f"id={note_id}")
+    return {"ok": True, "data": NoteRead.model_validate(note)}
 
 
-@router.put("/{note_id}", response_model=NoteRead)
-def update_note(note_id: int, payload: NoteUpdate, db: Session = Depends(get_db)) -> NoteRead:
+@router.put("/{note_id}", response_model=EnvelopeResponse[NoteRead])
+def update_note(note_id: int, payload: NoteUpdate, db: Session = Depends(get_db)) -> dict:
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise NotFoundException("Note", f"id={note_id}")
 
     # Update only provided fields (partial update)
     update_data = payload.model_dump(exclude_unset=True)
@@ -258,35 +260,33 @@ def update_note(note_id: int, payload: NoteUpdate, db: Session = Depends(get_db)
         db.refresh(note)
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Failed to update note: {str(e)}"
-        ) from e
+        logger.error("Failed to update note %s. Error: %s", note_id, str(e), exc_info=True)
+        raise BadRequestException(f"Failed to update note: {str(e)}") from e
 
-    return NoteRead.model_validate(note)
+    return {"ok": True, "data": NoteRead.model_validate(note)}
 
 
 @router.delete("/{note_id}", status_code=204)
 def delete_note(note_id: int, db: Session = Depends(get_db)) -> Response:
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise NotFoundException("Note", f"id={note_id}")
 
     try:
         db.delete(note)
         db.commit()
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=500, detail=f"Failed to delete note: {str(e)}"
-        ) from e
+        logger.error("Failed to delete note %s. Error: %s", note_id, str(e), exc_info=True)
+        raise BadRequestException(f"Failed to delete note: {str(e)}") from e
 
     return Response(status_code=204)
 
 
-@router.post("/{note_id}/tags", response_model=NoteRead)
+@router.post("/{note_id}/tags", response_model=EnvelopeResponse[NoteRead])
 def attach_tags_to_note(
     note_id: int, payload: TagAttach, db: Session = Depends(get_db)
-) -> NoteRead:
+) -> dict:
     """
     Attach tags to a note.
 
@@ -302,9 +302,9 @@ def attach_tags_to_note(
         Updated note with all associated tags
 
     Raises:
-        HTTPException 404: If note not found
-        HTTPException 400: If some tags don't exist
-        HTTPException 500: If database error occurs
+        NotFoundException: If note not found
+        BadRequestException: If some tags don't exist
+        BadRequestException: If database error occurs
 
     Example:
         POST /notes/1/tags
@@ -315,7 +315,7 @@ def attach_tags_to_note(
     # Get the note
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail=f"Note with id {note_id} not found")
+        raise NotFoundException("Note", f"id={note_id}")
 
     # Remove duplicates from tag_ids list
     unique_tag_ids = list(set(payload.tag_ids))
@@ -327,10 +327,7 @@ def attach_tags_to_note(
     missing_tag_ids = set(unique_tag_ids) - existing_tag_ids
 
     if missing_tag_ids:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tags with ids {sorted(missing_tag_ids)} not found",
-        )
+        raise BadRequestException(f"Tags with ids {sorted(missing_tag_ids)} not found")
 
     try:
         # Add tags to the note (SQLAlchemy automatically handles duplicates)
@@ -343,15 +340,13 @@ def attach_tags_to_note(
     except Exception as e:
         db.rollback()
         logger.error("Failed to attach tags to note %s. Error: %s", note_id, str(e), exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Database error occurred while attaching tags"
-        ) from e
+        raise BadRequestException("Database error occurred while attaching tags") from e
 
-    return NoteRead.model_validate(note)
+    return {"ok": True, "data": NoteRead.model_validate(note)}
 
 
-@router.delete("/{note_id}/tags/{tag_id}", response_model=NoteRead)
-def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db)) -> NoteRead:
+@router.delete("/{note_id}/tags/{tag_id}", response_model=EnvelopeResponse[NoteRead])
+def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db)) -> dict:
     """
     Remove a tag from a note.
 
@@ -367,8 +362,8 @@ def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db
         Updated note with remaining tags
 
     Raises:
-        HTTPException 404: If note not found or tag not associated with note
-        HTTPException 500: If database error occurs
+        NotFoundException: If note not found or tag not associated with note
+        BadRequestException: If database error occurs
 
     Example:
         DELETE /notes/1/tags/2
@@ -376,7 +371,7 @@ def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db
     # Get the note
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail=f"Note with id {note_id} not found")
+        raise NotFoundException("Note", f"id={note_id}")
 
     # Check if the tag is associated with the note
     tag_to_remove = None
@@ -386,9 +381,8 @@ def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db
             break
 
     if not tag_to_remove:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Tag with id {tag_id} is not associated with note {note_id}",
+        raise NotFoundException(
+            "Tag", f"id={tag_id} is not associated with note {note_id}"
         )
 
     try:
@@ -405,19 +399,17 @@ def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db
             str(e),
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500, detail="Database error occurred while removing tag"
-        ) from e
+        raise BadRequestException("Database error occurred while removing tag") from e
 
-    return NoteRead.model_validate(note)
+    return {"ok": True, "data": NoteRead.model_validate(note)}
 
 
-@router.post("/{note_id}/extract", response_model=ExtractResponse | ExtractApplyResponse)
+@router.post("/{note_id}/extract", response_model=EnvelopeResponse[ExtractResponse | ExtractApplyResponse])
 def extract_from_note(
     note_id: int,
     apply: bool = Query(False, description="Whether to persist extracted tags and action items to database"),
     db: Session = Depends(get_db),
-) -> ExtractResponse | ExtractApplyResponse:
+) -> dict:
     """
     Extract tags and action items from a note's content.
 
@@ -438,8 +430,8 @@ def extract_from_note(
         ExtractApplyResponse: Persisted database objects (apply=true)
 
     Raises:
-        HTTPException 404: If note not found
-        HTTPException 500: If database error occurs
+        NotFoundException: If note not found
+        BadRequestException: If database error occurs
 
     Examples:
         # Preview extraction (no persistence)
@@ -464,17 +456,20 @@ def extract_from_note(
     # Get the note
     note = db.get(Note, note_id)
     if not note:
-        raise HTTPException(status_code=404, detail=f"Note with id {note_id} not found")
+        raise NotFoundException("Note", f"id={note_id}")
 
     # Extract content using the extract service
     extract_result = extract_from_content(note.content)
 
     # If apply=false, return preview without persisting
     if not apply:
-        return ExtractResponse(
-            tags=extract_result.tags,
-            action_items=extract_result.action_items,
-        )
+        return {
+            "ok": True,
+            "data": ExtractResponse(
+                tags=extract_result.tags,
+                action_items=extract_result.action_items,
+            ),
+        }
 
     # Apply=true: Persist tags and action items to database
     try:
@@ -527,14 +522,14 @@ def extract_from_note(
             str(e),
             exc_info=True,
         )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error occurred while extracting content: {str(e)}",
-        ) from e
+        raise BadRequestException(f"Database error occurred while extracting content: {str(e)}") from e
 
     # Return persisted objects
-    return ExtractApplyResponse(
-        tags=[TagRead.model_validate(tag) for tag in tag_objects],
-        action_items=[ActionItemRead.model_validate(item) for item in action_item_objects],
-        note=NoteRead.model_validate(note),
-    )
+    return {
+        "ok": True,
+        "data": ExtractApplyResponse(
+            tags=[TagRead.model_validate(tag) for tag in tag_objects],
+            action_items=[ActionItemRead.model_validate(item) for item in action_item_objects],
+            note=NoteRead.model_validate(note),
+        ),
+    }

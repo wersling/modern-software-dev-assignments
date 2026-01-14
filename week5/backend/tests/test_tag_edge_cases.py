@@ -26,7 +26,7 @@ def test_attach_empty_tag_list(client):
     note_payload = {"title": "Test Note", "content": "Test content"}
     r = client.post("/notes/", json=note_payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Attach empty tag list - should fail validation
     attach_payload = {"tag_ids": []}
@@ -40,7 +40,7 @@ def test_attach_many_tags_to_note(client):
     note_payload = {"title": "Test Note", "content": "Test content"}
     r = client.post("/notes/", json=note_payload)
     assert r.status_code == 201
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     # Create many tags
     tag_ids = []
@@ -49,14 +49,14 @@ def test_attach_many_tags_to_note(client):
         payload = {"name": f"Tag{i}"}
         r = client.post("/tags/", json=payload)
         assert r.status_code == 201
-        tag_ids.append(r.json()["id"])
+        tag_ids.append(r.json()["data"]["id"])
 
     # Attach all tags
     attach_payload = {"tag_ids": tag_ids}
     r = client.post(f"/notes/{note_id}/tags", json=attach_payload)
     assert r.status_code == 200
     data = r.json()
-    assert len(data["tags"]) == num_tags
+    assert len(data["data"]["tags"]) == num_tags
 
 
 def test_list_tags_empty_database(client):
@@ -126,16 +126,18 @@ def test_tag_name_with_unicode(client):
         payload = {"name": name}
         r = client.post("/tags/", json=payload)
         assert r.status_code == 201, f"Failed to create tag: {name}"
-        data = r.json()
-        assert data["name"] == name
+        response = r.json()
+        assert response["ok"] is True
+        assert response["data"]["name"] == name
 
     # Also test that leading/trailing whitespace is stripped
     # Use a different name to avoid duplicate tag error
     payload = {"name": "  spaced  "}  # Has leading and trailing spaces
     r = client.post("/tags/", json=payload)
     assert r.status_code == 201
-    data = r.json()
-    assert data["name"] == "spaced"  # Whitespace stripped
+    response = r.json()
+    assert response["ok"] is True
+    assert response["data"]["name"] == "spaced"  # Whitespace stripped
 
     # Verify all tags are in the list
     r = client.get("/tags/")
@@ -161,9 +163,9 @@ def test_tag_name_case_preserved_on_create(client):
         # Should fail after first due to case-insensitive unique constraint
         if name == test_cases[0]:
             assert r.status_code == 201
-            created_names.append(r.json()["name"])
+            created_names.append(r.json()["data"]["name"])
         else:
-            assert r.status_code == 400
+            assert r.status_code == 409  # CONFLICT status code
 
     # First tag's case should be preserved
     assert created_names[0] == test_cases[0]
@@ -189,11 +191,11 @@ def test_concurrent_tag_attachment_idempotency(client):
     # Create a note and tag
     note_payload = {"title": "Test Note", "content": "Test content"}
     r = client.post("/notes/", json=note_payload)
-    note_id = r.json()["id"]
+    note_id = r.json()["data"]["id"]
 
     tag_payload = {"name": "ConcurrentTag"}
     r = client.post("/tags/", json=tag_payload)
-    tag_id = r.json()["id"]
+    tag_id = r.json()["data"]["id"]
 
     # Attach the same tag 5 times
     for _ in range(5):
@@ -201,10 +203,10 @@ def test_concurrent_tag_attachment_idempotency(client):
         r = client.post(f"/notes/{note_id}/tags", json=attach_payload)
         assert r.status_code == 200
         data = r.json()
-        assert len(data["tags"]) == 1  # Should only have one tag
+        assert len(data["data"]["tags"]) == 1  # Should only have one tag
 
     # Verify only one association exists
     r = client.get(f"/notes/{note_id}")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["tags"]) == 1
+    assert len(data["data"]["tags"]) == 1

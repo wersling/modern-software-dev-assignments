@@ -1,13 +1,14 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
+from ..exceptions import BadRequestException, ConflictException, NotFoundException
 from ..models import Tag
-from ..schemas import TagCreate, TagRead
+from ..schemas import EnvelopeResponse, TagCreate, TagRead
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -44,8 +45,8 @@ def list_tags(
     return [TagRead.model_validate(row) for row in rows]
 
 
-@router.post("/", response_model=TagRead, status_code=201)
-def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> TagRead:
+@router.post("/", response_model=EnvelopeResponse[TagRead], status_code=201)
+def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> dict:
     """
     Create a new tag.
 
@@ -57,7 +58,8 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> TagRead:
         Created tag
 
     Raises:
-        HTTPException 400: If a tag with the same name already exists
+        ConflictException: If a tag with the same name already exists
+        BadRequestException: If database error occurs
     """
     # Check if tag with same name already exists
     existing_tag = db.execute(
@@ -65,10 +67,7 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> TagRead:
     ).scalar_one_or_none()
 
     if existing_tag:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Tag with name '{payload.name}' already exists (case-insensitive)",
-        )
+        raise ConflictException("Tag", f"name '{payload.name}' already exists (case-insensitive)")
 
     # Create new tag
     tag = Tag(name=payload.name)
@@ -79,11 +78,9 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> TagRead:
         db.refresh(tag)
     except Exception as e:
         logger.error("Failed to create tag. Error: %s", str(e), exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Database error occurred while creating tag"
-        ) from e
+        raise BadRequestException("Database error occurred while creating tag") from e
 
-    return TagRead.model_validate(tag)
+    return {"ok": True, "data": TagRead.model_validate(tag)}
 
 
 @router.delete("/{tag_id}", status_code=204)
@@ -102,12 +99,12 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)) -> Response:
         204 No Content on success
 
     Raises:
-        HTTPException 404: If tag not found
-        HTTPException 500: If database error occurs
+        NotFoundException: If tag not found
+        BadRequestException: If database error occurs
     """
     tag = db.get(Tag, tag_id)
     if not tag:
-        raise HTTPException(status_code=404, detail=f"Tag with id {tag_id} not found")
+        raise NotFoundException("Tag", f"id={tag_id}")
 
     try:
         db.delete(tag)
@@ -115,8 +112,6 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)) -> Response:
     except Exception as e:
         db.rollback()
         logger.error("Failed to delete tag with ID %s. Error: %s", tag_id, str(e), exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Database error occurred while deleting tag"
-        ) from e
+        raise BadRequestException("Database error occurred while deleting tag") from e
 
     return Response(status_code=204)
