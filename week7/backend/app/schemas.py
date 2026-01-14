@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CategoryCreate(BaseModel):
@@ -14,14 +14,13 @@ class CategoryCreate(BaseModel):
 
 
 class CategoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: str | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CategoryPatch(BaseModel):
@@ -46,15 +45,14 @@ class NoteCreate(BaseModel):
 
 
 class NoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     content: str
     category_id: int | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class NotePatch(BaseModel):
@@ -81,15 +79,14 @@ class ActionItemCreate(BaseModel):
 
 
 class ActionItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     description: str
     completed: bool
     category_id: int | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ActionItemPatch(BaseModel):
@@ -116,6 +113,8 @@ class CommentCreate(BaseModel):
 
 
 class CommentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     content: str
     author_name: str
@@ -123,9 +122,6 @@ class CommentRead(BaseModel):
     action_item_id: int | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CommentPatch(BaseModel):
