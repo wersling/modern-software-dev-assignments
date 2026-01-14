@@ -1,6 +1,7 @@
 from backend.app.services.extract import (
     Priority,
     extract_action_items,
+    extract_action_items_enhanced,
     extract_assignee,
     extract_due_date,
     extract_priority,
@@ -98,3 +99,51 @@ def test_extract_assignee_multiple():
 
 def test_extract_assignee_none():
     assert extract_assignee("Task without assignee") is None
+
+
+def test_extract_action_items_enhanced_todo_marker():
+    text = "- TODO: Write tests #testing"
+    items = extract_action_items_enhanced(text)
+    assert len(items) == 1
+    assert items[0].description == "Write tests"
+    assert items[0].tags == ["testing"]
+
+
+def test_extract_action_items_enhanced_question():
+    text = "- Should we implement this feature?"
+    items = extract_action_items_enhanced(text)
+    assert len(items) == 1
+    assert "implement this feature" in items[0].description
+
+
+def test_extract_action_items_enhanced_imperative():
+    text = "- Fix the bug #urgent"
+    items = extract_action_items_enhanced(text)
+    assert len(items) == 1
+    assert "Fix the bug" in items[0].description
+
+
+def test_extract_action_items_enhanced_full_metadata():
+    text = "- [HIGH] TODO: Deploy to production @john #deploy due:2025-02-01"
+    items = extract_action_items_enhanced(text)
+    assert len(items) == 1
+    assert items[0].priority == Priority.HIGH
+    assert items[0].assignee == "john"
+    assert items[0].tags == ["deploy"]
+    assert items[0].due_date == "2025-02-01"
+    assert "Deploy to production" in items[0].description
+
+
+def test_extract_action_items_enhanced_multiple():
+    text = """
+    - TODO: Write tests
+    - Can you review the PR?
+    - [urgent] Fix the bug @alice
+    - Remember to update docs #documentation
+    """.strip()
+    items = extract_action_items_enhanced(text)
+    assert len(items) == 4
+    assert any("Write tests" in item.description for item in items)
+    assert any("review the PR" in item.description for item in items)
+    assert any("Fix the bug" in item.description for item in items)
+    assert any("update docs" in item.description for item in items)
