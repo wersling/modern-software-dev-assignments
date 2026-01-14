@@ -57,3 +57,26 @@ def extract_tags(text: str) -> list[str]:
     pattern = r"#(\w+)"
     matches = re.findall(pattern, text)
     return list(set(matches))  # Remove duplicates
+
+
+def extract_due_date(text: str) -> Optional[str]:
+    """Extract due date from text in YYYY-MM-DD format."""
+    patterns = [
+        r"due:\s*(\d{4}-\d{2}-\d{2})",
+        r"by:\s*(\d{4}-\d{2}-\d{2})",
+        r"deadline:\s*(\d{4}-\d{2}-\d{2})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text.lower())
+        if match:
+            return match.group(1)
+    return None
+
+
+def extract_assignee(text: str) -> Optional[str]:
+    """Extract assignee from text (mentions with @)."""
+    pattern = r"@(\w+)"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)
+    return None

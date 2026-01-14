@@ -1,6 +1,8 @@
 from backend.app.services.extract import (
     Priority,
     extract_action_items,
+    extract_assignee,
+    extract_due_date,
     extract_priority,
     extract_tags,
 )
@@ -66,3 +68,33 @@ def test_extract_tags_duplicates():
 def test_extract_tags_none():
     tags = extract_tags("Just regular text")
     assert len(tags) == 0
+
+
+def test_extract_due_date_due_keyword():
+    assert extract_due_date("Task due:2025-01-15") == "2025-01-15"
+
+
+def test_extract_due_date_by_keyword():
+    assert extract_due_date("Finish by:2025-02-01") == "2025-02-01"
+
+
+def test_extract_due_date_deadline_keyword():
+    assert extract_due_date("Deadline:2025-03-15") == "2025-03-15"
+
+
+def test_extract_due_date_none():
+    assert extract_due_date("Task without date") is None
+
+
+def test_extract_assignee_single():
+    assert extract_assignee("Task @john") == "john"
+
+
+def test_extract_assignee_multiple():
+    # Returns first match
+    result = extract_assignee("@john please review with @jane")
+    assert result in ["john", "jane"]
+
+
+def test_extract_assignee_none():
+    assert extract_assignee("Task without assignee") is None
