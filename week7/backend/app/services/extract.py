@@ -50,3 +50,10 @@ def extract_priority(text: str) -> Optional[Priority]:
             if re.search(pattern, text_lower):
                 return priority
     return None
+
+
+def extract_tags(text: str) -> list[str]:
+    """Extract hashtags from text."""
+    pattern = r"#(\w+)"
+    matches = re.findall(pattern, text)
+    return list(set(matches))  # Remove duplicates
