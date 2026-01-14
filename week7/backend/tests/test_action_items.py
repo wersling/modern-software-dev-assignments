@@ -22,3 +22,53 @@ def test_create_complete_list_and_patch_action_item(client):
     assert patched["description"] == "Updated"
 
 
+def test_get_action_item_by_id(client):
+    payload = {"description": "Get Test Item"}
+    r = client.post("/action-items/", json=payload)
+    assert r.status_code == 201
+    item_id = r.json()["id"]
+
+    r = client.get(f"/action-items/{item_id}")
+    assert r.status_code == 200
+    item = r.json()
+    assert item["id"] == item_id
+    assert item["description"] == "Get Test Item"
+
+    r = client.get("/action-items/99999")
+    assert r.status_code == 404
+
+
+def test_delete_action_item(client):
+    payload = {"description": "Delete Me"}
+    r = client.post("/action-items/", json=payload)
+    assert r.status_code == 201
+    item_id = r.json()["id"]
+
+    r = client.delete(f"/action-items/{item_id}")
+    assert r.status_code == 204
+
+    r = client.get(f"/action-items/{item_id}")
+    assert r.status_code == 404
+
+    r = client.delete("/action-items/99999")
+    assert r.status_code == 404
+
+
+def test_action_item_validation_description_too_long(client):
+    payload = {"description": "x" * 501}
+    r = client.post("/action-items/", json=payload)
+    assert r.status_code == 422
+
+
+def test_action_item_validation_empty_description(client):
+    payload = {"description": ""}
+    r = client.post("/action-items/", json=payload)
+    assert r.status_code == 422
+
+
+def test_action_item_validation_strip_whitespace(client):
+    payload = {"description": "  Action with spaces  "}
+    r = client.post("/action-items/", json=payload)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["description"] == "Action with spaces"
