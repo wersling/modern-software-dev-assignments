@@ -24,20 +24,29 @@
     <div class="row">
       <label class="row"><input id="save_note" type="checkbox" checked /> Save as note</label>
       <button id="extract">Extract</button>
+      <button id="extract_llm">Extract LLM</button>
+      <button id="list_notes">List Notes</button>
     </div>
 
     <div class="items" id="items"></div>
+    <div class="items" id="notes"></div>
 
     <script>
       const $ = (sel) => document.querySelector(sel);
       const itemsEl = $('#items');
+      const notesEl = $('#notes');
       const btn = $('#extract');
-      btn.addEventListener('click', async () => {
+      const btnLlm = $('#extract_llm');
+      const btnListNotes = $('#list_notes');
+      
+      // 通用提取函数
+      async function extractItems(endpoint) {
         const text = $('#text').value;
         const save = $('#save_note').checked;
         itemsEl.textContent = 'Extracting...';
+        notesEl.innerHTML = '';  // 清空笔记列表
         try {
-          const res = await fetch('/action-items/extract', {
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, save_note: save }),
@@ -64,6 +73,39 @@
         } catch (err) {
           console.error(err);
           itemsEl.textContent = 'Error extracting items';
+        }
+      }
+      
+      // Extract 按钮（使用默认提取方式）
+      btn.addEventListener('click', () => extractItems('/action-items/extract'));
+      
+      // Extract LLM 按钮（强制使用 LLM）
+      btnLlm.addEventListener('click', () => extractItems('/action-items/extract-llm'));
+      
+      // List Notes 按钮
+      btnListNotes.addEventListener('click', async () => {
+        itemsEl.innerHTML = '';  // 清空行动项列表
+        notesEl.textContent = 'Loading notes...';
+        try {
+          const res = await fetch('/notes', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (!res.ok) throw new Error('Request failed');
+          const notes = await res.json();
+          if (!notes || notes.length === 0) {
+            notesEl.innerHTML = '<p class="muted">No notes found.</p>';
+            return;
+          }
+          notesEl.innerHTML = '<h2>All Notes</h2>' + notes.map(note => (
+            `<div class="item">
+              <strong>Note #${note.id}</strong> (${new Date(note.created_at).toLocaleString()})
+              <p>${note.content}</p>
+            </div>`
+          )).join('');
+        } catch (err) {
+          console.error(err);
+          notesEl.textContent = 'Error loading notes';
         }
       });
 

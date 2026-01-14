@@ -15,7 +15,7 @@ Keep the implementation minimal.
 """
 
 # TODO: Fill this in!
-YOUR_REFLEXION_PROMPT = ""
+YOUR_REFLEXION_PROMPT = "你是一位编码助手，根据用户提供的缺陷代码和测试用例结果，分析缺陷代码的原因，并给出改进后的代码。"
 
 
 # Ground-truth test suite used to evaluate generated code
@@ -96,7 +96,8 @@ def your_build_reflexion_context(prev_code: str, failures: List[str]) -> str:
 
     Return a string that will be sent as the user content alongside the reflexion system prompt.
     """
-    return ""
+    failures_text = '\n'.join(failures)
+    return f"```python\n{prev_code}\n```\n\nTests failed:\n{failures_text}"
 
 
 def apply_reflexion(

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "weather": {
+      "url": "http://127.0.0.1:8000",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer your-secret-token-here"
+      }
+    }
+  }
+}
+
