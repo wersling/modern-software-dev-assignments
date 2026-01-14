@@ -4,8 +4,8 @@ This is a FastAPI full-stack starter project focused on practicing AI-assisted c
 
 ## Project Overview
 
-**Purpose**: Educational project for exploring AI code review tools and best practices  
-**Focus**: Agent-driven development with Graphite Diamond AI reviews  
+**Purpose**: Educational project for exploring AI code review tools and best practices
+**Focus**: Agent-driven development with Graphite Diamond AI reviews
 **Tech Stack**: FastAPI + SQLite + Vanilla JavaScript frontend
 
 ## Quick Start
@@ -174,5 +174,5 @@ Every code change must follow Graphite best practices:
 
 ---
 
-**Last Updated**: 2025-01-14  
+**Last Updated**: 2025-01-14
 **Team Configurator Version**: 1.0
