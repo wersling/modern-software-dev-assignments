@@ -80,3 +80,71 @@ def extract_assignee(text: str) -> Optional[str]:
     if match:
         return match.group(1)
     return None
+
+
+def extract_action_items_enhanced(text: str) -> list[ExtractedActionItem]:
+    """Enhanced action item extraction with rich metadata.
+
+    Recognizes:
+    - Explicit markers: TODO:, ACTION:
+    - Questions ending with ?
+    - Imperative sentences
+    - High-priority markers with !
+    - All metadata: priority, tags, due dates, assignees
+    """
+    items: list[ExtractedActionItem] = []
+    lines = [line.strip("- ") for line in text.splitlines() if line.strip()]
+
+    for line in lines:
+        # Check if this line is an action item
+        is_action_item = False
+
+        # Explicit markers (may have priority prefix)
+        if re.match(r"^(\[[\w!]+\]\s*)?(todo|action):\s*", line.lower()):
+            is_action_item = True
+        # Questions
+        elif line.endswith("?"):
+            is_action_item = True
+        # Exclamations (high urgency)
+        elif line.endswith("!"):
+            is_action_item = True
+        # Imperative patterns (common action verbs, may have priority prefix)
+        elif re.match(
+            r"^(\[[\w!]+\]\s*)?(please|can you|need to|should|must|remember|don't forget|verify|check|review|fix|implement|create|add|remove|delete|update|write|test|deploy)\b",
+            line.lower(),
+        ):
+            is_action_item = True
+
+        if is_action_item:
+            # Extract metadata
+            priority = extract_priority(line)
+            tags = extract_tags(line)
+            due_date = extract_due_date(line)
+            assignee = extract_assignee(line)
+
+            # Clean up the description (remove metadata markers)
+            clean_desc = re.sub(r"#\w+", "", line)  # Remove tags
+            clean_desc = re.sub(r"@\w+", "", clean_desc)  # Remove mentions
+            clean_desc = re.sub(
+                r"(due|by|deadline):\s*\d{4}-\d{2}-\d{2}", "", clean_desc, flags=re.IGNORECASE
+            )  # Remove dates
+            clean_desc = re.sub(
+                r"\[(high|medium|low|urgent|important|normal|later|someday|!)\]",
+                "",
+                clean_desc,
+                flags=re.IGNORECASE,
+            )  # Remove priority
+            clean_desc = re.sub(r"^(todo|action):\s*", "", clean_desc, flags=re.IGNORECASE)
+            clean_desc = clean_desc.strip()
+
+            items.append(
+                ExtractedActionItem(
+                    description=clean_desc or line,
+                    priority=priority,
+                    tags=tags,
+                    due_date=due_date,
+                    assignee=assignee,
+                )
+            )
+
+    return items
