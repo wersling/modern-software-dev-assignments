@@ -1,12 +1,15 @@
 from datetime import datetime
 
 # Forward declarations for type hints
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
     pass  # All models will be available at runtime
+
+# Generic type variable for paginated responses
+T = TypeVar("T")
 
 
 class NoteCreate(BaseModel):
@@ -130,8 +133,36 @@ class ActionItemBulkCompleteResponse(BaseModel):
     not_found: list[int] = Field(default=[], description="IDs that were not found in the database")
 
 
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated response model.
+
+    This model provides a consistent structure for all paginated endpoints,
+    including items, total count, current page, page size, and total pages.
+    """
+
+    items: list[T] = Field(..., description="List of items for the current page")
+    total: int = Field(..., description="Total number of items across all pages", ge=0)
+    page: int = Field(..., description="Current page number (starts from 1)", ge=1)
+    page_size: int = Field(..., description="Number of items per page", ge=1, le=100)
+    total_pages: int = Field(..., description="Total number of pages", ge=0)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "items": [],
+                    "total": 150,
+                    "page": 1,
+                    "page_size": 20,
+                    "total_pages": 8,
+                }
+            ]
+        }
+    )
+
+
 class PaginatedNotesList(BaseModel):
-    """Paginated response for notes search."""
+    """Paginated response for notes search (deprecated - use PaginatedResponse instead)."""
 
     items: list[NoteRead]
     total: int

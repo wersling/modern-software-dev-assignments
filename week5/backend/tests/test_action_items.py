@@ -12,7 +12,8 @@ def test_create_and_complete_action_item(client):
 
     r = client.get("/action-items/")
     assert r.status_code == 200
-    items = r.json()
+    response = r.json()
+    items = response["items"]
     assert len(items) == 1
 
 
@@ -38,7 +39,8 @@ def test_list_action_items_filter_by_completed(client):
     # Test filter: completed=true
     r = client.get("/action-items/?completed=true")
     assert r.status_code == 200
-    completed_items = r.json()
+    response = r.json()
+    completed_items = response["items"]
     assert len(completed_items) == 1
     assert completed_items[0]["completed"] is True
     assert completed_items[0]["id"] == created_ids[0]
@@ -46,14 +48,16 @@ def test_list_action_items_filter_by_completed(client):
     # Test filter: completed=false
     r = client.get("/action-items/?completed=false")
     assert r.status_code == 200
-    incomplete_items = r.json()
+    response = r.json()
+    incomplete_items = response["items"]
     assert len(incomplete_items) == 2
     assert all(item["completed"] is False for item in incomplete_items)
 
     # Test no filter (should return all)
     r = client.get("/action-items/")
     assert r.status_code == 200
-    all_items = r.json()
+    response = r.json()
+    all_items = response["items"]
     assert len(all_items) == 3
 
 
@@ -91,7 +95,8 @@ def test_bulk_complete_action_items(client):
     # Verify fourth item is still incomplete
     r = client.get("/action-items/")
     assert r.status_code == 200
-    all_items = r.json()
+    response = r.json()
+    all_items = response["items"]
     completed_items = [item for item in all_items if item["completed"] is True]
     incomplete_items = [item for item in all_items if item["completed"] is False]
 
@@ -119,7 +124,8 @@ def test_bulk_complete_with_some_invalid_ids(client):
 
     # Verify the items were actually completed
     r = client.get("/action-items/")
-    all_items = r.json()
+    response = r.json()
+    all_items = response["items"]
     assert all(item["completed"] is True for item in all_items)
 
 

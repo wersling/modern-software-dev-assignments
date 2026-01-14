@@ -28,12 +28,10 @@ def test_attach_empty_tag_list(client):
     assert r.status_code == 201
     note_id = r.json()["id"]
 
-    # Attach empty tag list
+    # Attach empty tag list - should fail validation
     attach_payload = {"tag_ids": []}
     r = client.post(f"/notes/{note_id}/tags", json=attach_payload)
-    assert r.status_code == 200
-    data = r.json()
-    assert len(data["tags"]) == 0
+    assert r.status_code == 422  # Validation error: tag_ids must have at least 1 element
 
 
 def test_attach_many_tags_to_note(client):
@@ -114,21 +112,30 @@ def test_search_tags_sql_injection_attempt(client):
 def test_tag_name_with_unicode(client):
     """Test creating tags with unicode characters."""
     # Test various unicode characters
+    # Note: Leading/trailing whitespace will be stripped by the schema
     unicode_names = [
         "中文标签",
         "日本語タグ",
         "태그",
         "Тег",
-        " etiqueta",
+        "etiqueta",  # " etiqueta" with leading space will be stripped to "etiqueta"
         "🐍 Python",
     ]
 
-    for name in unicode_names:
+    for i, name in enumerate(unicode_names):
         payload = {"name": name}
         r = client.post("/tags/", json=payload)
         assert r.status_code == 201, f"Failed to create tag: {name}"
         data = r.json()
         assert data["name"] == name
+
+    # Also test that leading/trailing whitespace is stripped
+    # Use a different name to avoid duplicate tag error
+    payload = {"name": "  spaced  "}  # Has leading and trailing spaces
+    r = client.post("/tags/", json=payload)
+    assert r.status_code == 201
+    data = r.json()
+    assert data["name"] == "spaced"  # Whitespace stripped
 
     # Verify all tags are in the list
     r = client.get("/tags/")

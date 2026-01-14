@@ -77,7 +77,8 @@ def test_list_notes_with_tags_no_n1_query(client):
     # List all notes - should not cause N+1 queries due to lazy="selectin"
     r = client.get("/notes/")
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
 
     assert len(notes) >= num_notes
 
@@ -127,10 +128,11 @@ def test_filter_notes_by_tag_performance(client):
         note_id = r.json()["id"]
         client.post(f"/notes/{note_id}/tags", json={"tag_ids": [js_tag_id]})
 
-    # Filter by Python tag
-    r = client.get("/notes/", params={"tag_id": python_tag_id})
+    # Filter by Python tag (use page_size=100 to get all results)
+    r = client.get("/notes/", params={"tag_id": python_tag_id, "page_size": 100})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
 
     assert len(notes) == num_python_notes
     # Verify all notes have Python tag

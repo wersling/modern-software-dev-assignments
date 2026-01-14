@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -12,6 +12,14 @@ from ..schemas import (
     ActionItemBulkCompleteResponse,
     ActionItemCreate,
     ActionItemRead,
+    PaginatedResponse,
+)
+from ..utils.pagination import (
+    DEFAULT_PAGE,
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    build_paginated_response,
+    get_pagination_params,
 )
 
 router = APIRouter(prefix="/action-items", tags=["action_items"])
@@ -23,20 +31,29 @@ MAX_BULK_ITEMS = 1000
 logger = logging.getLogger(__name__)
 
 
-@router.get("/", response_model=list[ActionItemRead])
+@router.get("/", response_model=PaginatedResponse[ActionItemRead])
 def list_items(
     completed: Optional[bool] = Query(None, description="Filter by completion status (true/false)"),
+    page: int = Query(DEFAULT_PAGE, ge=1, description="Page number (starts from 1)"),
+    page_size: int = Query(
+        DEFAULT_PAGE_SIZE,
+        ge=1,
+        le=MAX_PAGE_SIZE,
+        description="Number of items per page (max 100)",
+    ),
     db: Session = Depends(get_db),
-) -> list[ActionItemRead]:
+) -> dict:
     """
-    List action items with optional completion status filter.
+    List action items with optional completion status filter and pagination.
 
     Args:
         completed: Optional boolean filter for completion status
+        page: Page number for pagination (default: 1)
+        page_size: Number of items per page (default: 20, max: 100)
         db: Database session
 
     Returns:
-        List of action items matching the filter criteria
+        Paginated list of action items matching the filter criteria
     """
     query = select(ActionItem)
 
@@ -44,8 +61,29 @@ def list_items(
     if completed is not None:
         query = query.where(ActionItem.completed == completed)
 
-    rows = db.execute(query).scalars().all()
-    return [ActionItemRead.model_validate(row) for row in rows]
+    # Validate pagination parameters
+    validated_page, validated_page_size = get_pagination_params(page, page_size)
+
+    # Get total count
+    count_query = select(func.count(ActionItem.id))
+    if completed is not None:
+        count_query = count_query.where(ActionItem.completed == completed)
+    total = db.execute(count_query).scalar()
+
+    # Apply pagination
+    offset = (validated_page - 1) * validated_page_size
+    paginated_query = query.offset(offset).limit(validated_page_size)
+
+    rows = db.execute(paginated_query).scalars().all()
+
+    # Build paginated response
+    return build_paginated_response(
+        items=rows,
+        total=total,
+        page=validated_page,
+        page_size=validated_page_size,
+        model_class=ActionItemRead,
+    )
 
 
 @router.post("/", response_model=ActionItemRead, status_code=201)

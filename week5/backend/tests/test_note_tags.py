@@ -206,7 +206,8 @@ def test_list_notes_filter_by_tag_id(client):
     # List notes filtered by tag_id
     r = client.get("/notes/", params={"tag_id": tag1_id})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 1
     assert notes[0]["title"] == "Python Note"
     assert len(notes[0]["tags"]) == 1
@@ -238,14 +239,16 @@ def test_list_notes_filter_by_tag_name(client):
     # List notes filtered by tag name (case-insensitive)
     r = client.get("/notes/", params={"tag": "docker"})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 1
     assert notes[0]["title"] == "Docker Note"
 
     # Try with different case
     r = client.get("/notes/", params={"tag": "DOCKER"})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 1
 
 

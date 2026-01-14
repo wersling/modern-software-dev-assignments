@@ -41,7 +41,8 @@ def test_complete_tag_lifecycle(client):
     python_tag_id = tag_ids[1]  # "Python"
     r = client.get("/notes/", params={"tag_id": python_tag_id})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 1
     assert notes[0]["id"] == note_id
 
@@ -98,7 +99,8 @@ def test_multiple_notes_shared_tags(client):
     # Filter by "Backend" tag - should return notes 1, 2, 4
     r = client.get("/notes/", params={"tag_id": tag_ids["Backend"]})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 3
     titles = {note["title"] for note in notes}
     assert titles == {"Note 1", "Note 2", "Note 4"}
@@ -106,7 +108,8 @@ def test_multiple_notes_shared_tags(client):
     # Filter by "API" tag - should return notes 1, 3, 4
     r = client.get("/notes/", params={"tag_id": tag_ids["API"]})
     assert r.status_code == 200
-    notes = r.json()
+    response = r.json()
+    notes = response["items"]
     assert len(notes) == 3
     titles = {note["title"] for note in notes}
     assert titles == {"Note 1", "Note 3", "Note 4"}
@@ -177,7 +180,8 @@ def test_tag_organization_workflow(client):
     # Step 4: Find all Intermediate content
     r = client.get("/notes/", params={"tag_id": difficulty_tag_ids["Intermediate"]})
     assert r.status_code == 200
-    intermediate_notes = r.json()
+    response = r.json()
+    intermediate_notes = response["items"]
     assert len(intermediate_notes) == 2
     titles = {note["title"] for note in intermediate_notes}
     assert titles == {"JavaScript Closures", "Binary Search Trees"}
@@ -185,7 +189,8 @@ def test_tag_organization_workflow(client):
     # Step 5: Find all Python content
     r = client.get("/notes/", params={"tag_id": topic_tag_ids["Python"]})
     assert r.status_code == 200
-    python_notes = r.json()
+    response = r.json()
+    python_notes = response["items"]
     assert len(python_notes) == 1
     assert python_notes[0]["title"] == "Python Basics"
 
@@ -281,7 +286,8 @@ def test_bulk_tag_operations(client):
     # Filter by multiple criteria (e.g., all Web-related content)
     r = client.get("/notes/", params={"tag_id": created_tags["Web"]})
     assert r.status_code == 200
-    web_notes = r.json()
+    response = r.json()
+    web_notes = response["items"]
     assert len(web_notes) == 2
     titles = {note["title"] for note in web_notes}
     assert titles == {"Flask Tutorial", "React Guide"}

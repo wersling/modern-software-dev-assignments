@@ -15,10 +15,18 @@ from ..schemas import (
     NoteRead,
     NoteUpdate,
     PaginatedNotesList,
+    PaginatedResponse,
     TagAttach,
     TagRead,
 )
 from ..services.extract import extract_from_content
+from ..utils.pagination import (
+    DEFAULT_PAGE,
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    build_paginated_response,
+    get_pagination_params,
+)
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -26,22 +34,31 @@ router = APIRouter(prefix="/notes", tags=["notes"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/", response_model=list[NoteRead])
+@router.get("/", response_model=PaginatedResponse[NoteRead])
 def list_notes(
     tag_id: Optional[int] = Query(None, description="Filter notes by tag ID"),
     tag: Optional[str] = Query(None, description="Filter notes by tag name (case-insensitive)"),
+    page: int = Query(DEFAULT_PAGE, ge=1, description="Page number (starts from 1)"),
+    page_size: int = Query(
+        DEFAULT_PAGE_SIZE,
+        ge=1,
+        le=MAX_PAGE_SIZE,
+        description="Number of items per page (max 100)",
+    ),
     db: Session = Depends(get_db),
-) -> list[NoteRead]:
+) -> dict:
     """
-    List all notes with optional tag filtering.
+    List all notes with optional tag filtering and pagination.
 
     Args:
         tag_id: Optional tag ID to filter notes (only notes with this tag will be returned)
         tag: Optional tag name to filter notes (case-insensitive search)
+        page: Page number for pagination (default: 1)
+        page_size: Number of items per page (default: 20, max: 100)
         db: Database session
 
     Returns:
-        List of notes ordered by creation time (newest first)
+        Paginated list of notes ordered by creation time (newest first)
 
     Note:
         If both tag_id and tag are provided, tag_id takes precedence.
@@ -63,8 +80,42 @@ def list_notes(
             func.lower(Tag.name).like(func.lower(tag_pattern), escape="\\")
         )
 
-    rows = db.execute(query).scalars().all()
-    return [NoteRead.model_validate(row) for row in rows]
+    # Validate pagination parameters
+    validated_page, validated_page_size = get_pagination_params(page, page_size)
+
+    # Get total count - we need to count the base query before pagination
+    # For queries with joins, we count distinct note ids to avoid duplicates
+    if tag_id is not None or tag is not None:
+        # When tag filter is applied, count distinct notes
+        count_query = select(func.count(Note.id)).select_from(Note)
+        if tag_id is not None:
+            count_query = count_query.join(Note.tags).where(Tag.id == tag_id)
+        elif tag is not None:
+            escaped_tag = tag.replace("%", "\\%").replace("_", "\\_")
+            tag_pattern = f"%{escaped_tag}%"
+            count_query = count_query.join(Note.tags).where(
+                func.lower(Tag.name).like(func.lower(tag_pattern), escape="\\")
+            )
+    else:
+        # No tag filter, simple count
+        count_query = select(func.count(Note.id))
+
+    total = db.execute(count_query).scalar()
+
+    # Apply pagination
+    offset = (validated_page - 1) * validated_page_size
+    paginated_query = query.offset(offset).limit(validated_page_size)
+
+    rows = db.execute(paginated_query).scalars().all()
+
+    # Build paginated response
+    return build_paginated_response(
+        items=rows,
+        total=total,
+        page=validated_page,
+        page_size=validated_page_size,
+        model_class=NoteRead,
+    )
 
 
 @router.post("/", response_model=NoteRead, status_code=201)
