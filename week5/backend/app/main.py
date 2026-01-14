@@ -31,10 +31,13 @@ app.add_middleware(
 # Ensure data dir exists
 Path("data").mkdir(parents=True, exist_ok=True)
 
-# Mount static frontend (serves the built React app) - only if dist exists
+# Mount static frontend assets (only if dist exists)
 frontend_dist = Path("frontend/dist")
 if frontend_dist.exists():
-    app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
+    # Mount assets directory for JavaScript and CSS files
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
 
 @app.on_event("startup")
@@ -49,12 +52,21 @@ app.include_router(action_items_router.router)
 app.include_router(tags_router.router)
 
 
+@app.get("/vite.svg")
+async def serve_vite_svg() -> FileResponse:
+    """Serve vite.svg icon"""
+    svg_path = frontend_dist / "vite.svg"
+    if svg_path.exists():
+        return FileResponse(str(svg_path), media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Icon not found")
+
+
 @app.get("/")
 async def root() -> FileResponse:
     """Serve the React SPA"""
     index_path = frontend_dist / "index.html"
     if index_path.exists():
-        return FileResponse("frontend/dist/index.html")
+        return FileResponse(str(index_path))
     return {"message": "Backend API is running. Frontend not built."}
 
 
@@ -69,5 +81,5 @@ async def serve_spa(full_path: str) -> FileResponse:
     # For all other paths, serve the SPA (if built)
     index_path = frontend_dist / "index.html"
     if index_path.exists():
-        return FileResponse("frontend/dist/index.html")
+        return FileResponse(str(index_path))
     return {"message": "Backend API is running. Frontend not built."}
