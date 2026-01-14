@@ -535,3 +535,243 @@ def test_search_sql_wildcards_escaped(client):
     data = r.json()
     assert data["total"] == 1
     assert "_" in data["items"][0]["title"]
+
+
+# ===== Extract Endpoint Tests =====
+
+
+def test_extract_preview_default(client):
+    """Test extraction preview (apply=false, default behavior)."""
+    # Create a note with tags and action items
+    content = """
+    #urgent #frontend
+
+    Tasks:
+    - [ ] Fix navigation bug
+    - [ ] Update documentation
+    todo: Write tests!
+    """
+    payload = {"title": "Meeting Notes", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract without apply (preview)
+    r = client.post(f"/notes/{note_id}/extract")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Check structure
+    assert "tags" in data
+    assert "action_items" in data
+    assert "note" not in data  # Should not include note in preview mode
+
+    # Check extracted tags
+    assert set(data["tags"]) == {"urgent", "frontend"}
+
+    # Check extracted action items
+    assert len(data["action_items"]) == 3
+    assert "Fix navigation bug" in data["action_items"]
+    assert "Update documentation" in data["action_items"]
+    assert "todo: Write tests!" in data["action_items"]  # todo: prefix is preserved
+
+
+def test_extract_apply_true(client):
+    """Test extraction with apply=true (persist to database)."""
+    # Create a note
+    content = """
+    #urgent #backend
+
+    Tasks:
+    - [ ] Fix API bug
+    todo: Deploy to production!
+    """
+    payload = {"title": "Sprint Notes", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract with apply=true
+    r = client.post(f"/notes/{note_id}/extract?apply=true")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Check structure - should include persisted objects
+    assert "tags" in data
+    assert "action_items" in data
+    assert "note" in data
+
+    # Check tags are objects with IDs
+    assert len(data["tags"]) == 2
+    assert all("id" in tag for tag in data["tags"])
+    assert all("name" in tag for tag in data["tags"])
+    tag_names = {tag["name"] for tag in data["tags"]}
+    assert tag_names == {"urgent", "backend"}
+
+    # Check action items are objects with IDs
+    assert len(data["action_items"]) == 2
+    assert all("id" in item for item in data["action_items"])
+    assert all("description" in item for item in data["action_items"])
+    assert all(item["completed"] is False for item in data["action_items"])
+
+    # Check note is updated with tags
+    assert data["note"]["id"] == note_id
+    assert len(data["note"]["tags"]) == 2
+    note_tag_names = {tag["name"] for tag in data["note"]["tags"]}
+    assert note_tag_names == {"urgent", "backend"}
+
+
+def test_extract_note_not_found(client):
+    """Test extraction on non-existent note."""
+    r = client.post("/notes/99999/extract")
+    assert r.status_code == 404
+    assert "not found" in r.json()["detail"].lower()
+
+
+def test_extract_duplicate_tags(client):
+    """Test that duplicate tags are not created."""
+    # Create a note with tags
+    content = "#urgent #frontend"
+    payload = {"title": "Note 1", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note1_id = r.json()["id"]
+
+    # Extract and apply (creates tags)
+    r = client.post(f"/notes/{note1_id}/extract?apply=true")
+    assert r.status_code == 200
+    data = r.json()
+    urgent_tag_id = [tag for tag in data["tags"] if tag["name"] == "urgent"][0]["id"]
+    frontend_tag_id = [tag for tag in data["tags"] if tag["name"] == "frontend"][0]["id"]
+
+    # Create another note with same tags
+    payload = {"title": "Note 2", "content": "#urgent #frontend"}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note2_id = r.json()["id"]
+
+    # Extract and apply (should reuse existing tags)
+    r = client.post(f"/notes/{note2_id}/extract?apply=true")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Check that same tag IDs are used
+    tag_ids = {tag["id"] for tag in data["tags"]}
+    assert tag_ids == {urgent_tag_id, frontend_tag_id}
+
+
+def test_extract_empty_content(client):
+    """Test extraction from note with no tags or action items."""
+    # Create a note with plain content
+    payload = {"title": "Plain Note", "content": "Just some plain text"}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract (should return empty lists)
+    r = client.post(f"/notes/{note_id}/extract")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["tags"] == []
+    assert data["action_items"] == []
+
+
+def test_extract_chinese_tags(client):
+    """Test extraction of Chinese tags."""
+    content = """
+    #前端 #后端 #数据库
+
+    任务：
+    - [ ] 修复登录问题
+    """
+    payload = {"title": "中文笔记", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract preview
+    r = client.post(f"/notes/{note_id}/extract")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Check Chinese tags are extracted
+    assert set(data["tags"]) == {"前端", "后端", "数据库"}
+    assert "修复登录问题" in data["action_items"]
+
+
+def test_extract_mixed_formats(client):
+    """Test extraction with mixed action item formats."""
+    content = """
+    #urgent
+
+    Tasks:
+    - [ ] Task 1
+    todo: Task 2
+    Urgent task!
+    - [x] Completed task
+    """
+    payload = {"title": "Mixed Format", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract
+    r = client.post(f"/notes/{note_id}/extract")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Should extract all action item formats
+    assert len(data["action_items"]) == 4
+    assert "Task 1" in data["action_items"]
+    assert "todo: Task 2" in data["action_items"]
+    assert "Urgent task!" in data["action_items"]
+    assert "Completed task" in data["action_items"]
+
+
+def test_extract_apply_persists_to_database(client):
+    """Test that apply=true actually persists data to database."""
+    # Create a note
+    content = "#important #bug\n- [ ] Fix it"
+    payload = {"title": "Bug Report", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract and apply
+    r = client.post(f"/notes/{note_id}/extract?apply=true")
+    assert r.status_code == 200
+    data = r.json()
+    tag_id = data["tags"][0]["id"]
+    action_item_id = data["action_items"][0]["id"]
+
+    # Verify data persists by fetching note again
+    r = client.get(f"/notes/{note_id}")
+    assert r.status_code == 200
+    note_data = r.json()
+
+    # Check tags are attached
+    assert len(note_data["tags"]) == 2
+    tag_names = {tag["name"] for tag in note_data["tags"]}
+    assert tag_names == {"important", "bug"}
+
+    # Verify action item was created (via tags endpoint or direct query)
+    # Note: Action items don't have note_id FK, so we can't query via note
+    # But we can verify the tag exists with correct ID
+    assert any(tag["id"] == tag_id for tag in note_data["tags"])
+
+
+def test_extract_special_characters_in_tags(client):
+    """Test extraction of tags with special characters."""
+    content = "#tag-1 #tag_2 #tag3-test"
+    payload = {"title": "Special Tags", "content": content}
+    r = client.post("/notes/", json=payload)
+    assert r.status_code == 201
+    note_id = r.json()["id"]
+
+    # Extract
+    r = client.post(f"/notes/{note_id}/extract")
+    assert r.status_code == 200
+    data = r.json()
+
+    # Check tags with special characters
+    assert set(data["tags"]) == {"tag-1", "tag_2", "tag3-test"}

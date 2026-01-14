@@ -6,8 +6,19 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Note, Tag
-from ..schemas import NoteCreate, NoteRead, NoteUpdate, PaginatedNotesList, TagAttach
+from ..models import ActionItem, Note, Tag
+from ..schemas import (
+    ActionItemRead,
+    ExtractApplyResponse,
+    ExtractResponse,
+    NoteCreate,
+    NoteRead,
+    NoteUpdate,
+    PaginatedNotesList,
+    TagAttach,
+    TagRead,
+)
+from ..services.extract import extract_from_content
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -348,3 +359,131 @@ def remove_tag_from_note(note_id: int, tag_id: int, db: Session = Depends(get_db
         ) from e
 
     return NoteRead.model_validate(note)
+
+
+@router.post("/{note_id}/extract", response_model=ExtractResponse | ExtractApplyResponse)
+def extract_from_note(
+    note_id: int,
+    apply: bool = Query(False, description="Whether to persist extracted tags and action items to database"),
+    db: Session = Depends(get_db),
+) -> ExtractResponse | ExtractApplyResponse:
+    """
+    Extract tags and action items from a note's content.
+
+    This endpoint analyzes the note content and extracts:
+    - Tags: #hashtag patterns (e.g., #urgent, #frontend)
+    - Action items: Lines ending with '!', starting with 'todo:', or - [ ] task format
+
+    When apply=false (default), returns extracted data without persisting.
+    When apply=true, creates/links tags and action items in the database.
+
+    Args:
+        note_id: ID of the note to extract from
+        apply: If true, persist results; if false, preview only
+        db: Database session
+
+    Returns:
+        ExtractResponse: Preview of extracted data (apply=false)
+        ExtractApplyResponse: Persisted database objects (apply=true)
+
+    Raises:
+        HTTPException 404: If note not found
+        HTTPException 500: If database error occurs
+
+    Examples:
+        # Preview extraction (no persistence)
+        POST /notes/1/extract
+
+        # Apply extraction (persist to database)
+        POST /notes/1/extract?apply=true
+
+    Extraction Rules:
+        Tags:
+        - Match standalone #tag patterns
+        - Support Chinese: #中文标签
+        - Support special chars: #tag-1, #tag_2
+        - Avoid matching in code blocks or markdown headers
+
+        Action Items:
+        - Lines ending with ! (e.g., "Fix this bug!")
+        - Lines starting with todo: (case-insensitive)
+        - - [ ] task format (Markdown checkbox)
+        - All extracted descriptions are deduplicated
+    """
+    # Get the note
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Note with id {note_id} not found")
+
+    # Extract content using the extract service
+    extract_result = extract_from_content(note.content)
+
+    # If apply=false, return preview without persisting
+    if not apply:
+        return ExtractResponse(
+            tags=extract_result.tags,
+            action_items=extract_result.action_items,
+        )
+
+    # Apply=true: Persist tags and action items to database
+    try:
+        # Process tags: get or create, then link to note
+        tag_objects = []
+        for tag_name in extract_result.tags:
+            # Check if tag already exists
+            existing_tag = db.execute(select(Tag).where(Tag.name == tag_name)).scalar_one_or_none()
+
+            if existing_tag:
+                # Use existing tag
+                tag_obj = existing_tag
+            else:
+                # Create new tag
+                tag_obj = Tag(name=tag_name)
+                db.add(tag_obj)
+                db.flush()  # Get the ID without committing
+
+            tag_objects.append(tag_obj)
+
+            # Link tag to note (SQLAlchemy handles duplicates in many-to-many)
+            if tag_obj not in note.tags:
+                note.tags.append(tag_obj)
+
+        # Process action items: create new records
+        action_item_objects = []
+        for description in extract_result.action_items:
+            # Create new action item (ActionItem has no note_id FK)
+            action_item = ActionItem(description=description, completed=False)
+            db.add(action_item)
+            db.flush()  # Get the ID without committing
+            action_item_objects.append(action_item)
+
+        # Commit all changes atomically
+        db.commit()
+
+        # Refresh to get database-generated values
+        db.refresh(note)
+        for tag_obj in tag_objects:
+            db.refresh(tag_obj)
+        for action_item_obj in action_item_objects:
+            db.refresh(action_item_obj)
+
+    except Exception as e:
+        # Rollback on any error
+        db.rollback()
+        logger.error(
+            "Failed to extract and persist data for note %s. Error: %s",
+            note_id,
+            str(e),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error occurred while extracting content: {str(e)}",
+        ) from e
+
+    # Return persisted objects
+    return ExtractApplyResponse(
+        tags=[TagRead.model_validate(tag) for tag in tag_objects],
+        action_items=[ActionItemRead.model_validate(item) for item in action_item_objects],
+        note=NoteRead.model_validate(note),
+    )

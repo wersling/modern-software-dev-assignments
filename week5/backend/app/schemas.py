@@ -1,7 +1,12 @@
 from datetime import datetime
-from typing import Optional
+
+# Forward declarations for type hints
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+if TYPE_CHECKING:
+    pass  # All models will be available at runtime
 
 
 class NoteCreate(BaseModel):
@@ -181,3 +186,100 @@ class TagAttach(BaseModel):
         if any(tag_id < 1 for tag_id in v):
             raise ValueError("all tag IDs must be positive integers")
         return v
+
+
+# =============================================================================
+# Extraction Schemas
+# =============================================================================
+
+
+class ExtractResponse(BaseModel):
+    """Response model for extraction preview (apply=false).
+
+    Returns extracted data without persisting to the database.
+    """
+
+    tags: list[str] = Field(
+        default=[], description="List of extracted tag names (hashtags from content)"
+    )
+    action_items: list[str] = Field(
+        default=[],
+        description="List of extracted action item descriptions (lines ending with '!' or starting with 'todo:')",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "tags": ["urgent", "frontend"],
+                    "action_items": ["Fix the navigation bug!", "todo: Update documentation"],
+                }
+            ]
+        }
+    )
+
+
+class ExtractApplyResponse(BaseModel):
+    """Response model for extraction with apply (apply=true).
+
+    Returns persisted database objects after applying extraction results.
+    """
+
+    tags: list[TagRead] = Field(default=[], description="List of Tag objects created or found")
+    action_items: list[ActionItemRead] = Field(
+        default=[], description="List of ActionItem objects created"
+    )
+    note: NoteRead = Field(..., description="Updated Note object with new tags attached")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "tags": [
+                        {
+                            "id": 1,
+                            "name": "urgent",
+                            "created_at": "2025-01-14T10:00:00Z",
+                        },
+                        {
+                            "id": 2,
+                            "name": "frontend",
+                            "created_at": "2025-01-14T10:00:00Z",
+                        },
+                    ],
+                    "action_items": [
+                        {
+                            "id": 1,
+                            "description": "Fix the navigation bug!",
+                            "completed": False,
+                            "created_at": "2025-01-14T10:00:00Z",
+                        },
+                        {
+                            "id": 2,
+                            "description": "todo: Update documentation",
+                            "completed": False,
+                            "created_at": "2025-01-14T10:00:00Z",
+                        },
+                    ],
+                    "note": {
+                        "id": 1,
+                        "title": "Meeting Notes",
+                        "content": "Discussed #urgent #frontend issues. Fix the navigation bug!\ntodo: Update documentation",
+                        "created_at": "2025-01-14T09:00:00Z",
+                        "tags": [
+                            {
+                                "id": 1,
+                                "name": "urgent",
+                                "created_at": "2025-01-14T10:00:00Z",
+                            },
+                            {
+                                "id": 2,
+                                "name": "frontend",
+                                "created_at": "2025-01-14T10:00:00Z",
+                            },
+                        ],
+                    },
+                }
+            ]
+        }
+    )
