@@ -128,7 +128,10 @@ describe('TagManager Component', () => {
     vi.spyOn(tagsApiModule.tagsApi, 'delete').mockResolvedValue(undefined);
 
     // Mock window.confirm
-    global.window.confirm = vi.fn(() => true);
+    Object.defineProperty(window, 'confirm', {
+      value: vi.fn(() => true),
+      writable: true,
+    });
 
     renderWithToast(<TagManager {...defaultProps} />);
 

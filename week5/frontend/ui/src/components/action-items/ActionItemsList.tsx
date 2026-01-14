@@ -19,8 +19,8 @@ export function ActionItemsList() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await actionItemsApi.list(completed);
-      setItems(data);
+      const response = await actionItemsApi.list(completed);
+      setItems(response.items);
       // Clear selection when loading new data
       setSelectedIds(new Set());
     } catch (err) {

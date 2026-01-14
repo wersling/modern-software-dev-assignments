@@ -34,7 +34,8 @@ export function NotesList() {
           // Filter by tags
           // Note: Current backend API only supports single tag_id filter
           // For multi-tag filtering, we'll need to filter client-side
-          const allNotes = await notesApi.list();
+          const response = await notesApi.list();
+          const allNotes = response.items;
 
           let filteredNotes = allNotes.filter((note) => {
             const noteTagIds = note.tags.map((tag) => tag.id);
@@ -53,18 +54,14 @@ export function NotesList() {
             total: filteredNotes.length,
             page: 1,
             page_size: pageSize,
+            total_pages: Math.ceil(filteredNotes.length / pageSize),
           };
         } else if (searchQuery) {
           // Search mode
           data = await notesApi.search(searchQuery, currentPage, pageSize);
         } else {
           // List all mode
-          data = {
-            items: await notesApi.list(),
-            total: 0,
-            page: 1,
-            page_size: pageSize,
-          };
+          data = await notesApi.list();
         }
 
         if (!abortController.signal.aborted) {

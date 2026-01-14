@@ -15,7 +15,7 @@ export interface TagManagerProps {
  * Provides functionality to create, view, and delete tags.
  * Shows statistics about tag usage if enabled.
  */
-export function TagManager({ onTagCreated, onTagDeleted, showStats = false }: TagManagerProps) {
+export function TagManager({ onTagCreated, onTagDeleted }: TagManagerProps) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

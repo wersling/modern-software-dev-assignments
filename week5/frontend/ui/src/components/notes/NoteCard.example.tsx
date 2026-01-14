@@ -35,21 +35,23 @@ export function NotesListWithTagFilter() {
         let data;
         if (selectedTag) {
           // Get all notes and filter by tag
-          const allNotes = await notesApi.list();
-          const filteredNotes = allNotes.filter(note =>
-            note.tags.some(tag => tag.name === selectedTag)
+          const response = await notesApi.list();
+          const allNotes = response.items;
+          const filteredNotes = allNotes.filter((note: Note) =>
+            note.tags.some((tag) => tag.name === selectedTag)
           );
           data = {
             items: filteredNotes,
             total: filteredNotes.length,
             page: 1,
-            page_size: pageSize
+            page_size: pageSize,
+            total_pages: Math.ceil(filteredNotes.length / pageSize),
           };
         } else {
           // Normal search or list all
           data = searchQuery
             ? await notesApi.search(searchQuery, currentPage, pageSize)
-            : { items: await notesApi.list(), total: 0, page: 1, page_size: pageSize };
+            : await notesApi.list();
         }
 
         if (!abortController.signal.aborted) {

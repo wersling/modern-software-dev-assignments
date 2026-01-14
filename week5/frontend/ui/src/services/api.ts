@@ -6,6 +6,7 @@ import type {
   Note,
   NoteCreate,
   NoteUpdate,
+  PaginatedResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -32,7 +33,7 @@ export const notesApi = {
     const url = tagId === undefined
       ? '/notes/'
       : `/notes/?tag_id=${tagId}`;
-    return fetchJSON<Note[]>(url);
+    return fetchJSON<PaginatedResponse<Note>>(url);
   },
 
   create: (note: NoteCreate) =>
@@ -57,12 +58,7 @@ export const notesApi = {
     }),
 
   search: (query: string, page = 1, pageSize = 10, sort = 'created_desc') =>
-    fetchJSON<{
-      items: Note[];
-      total: number;
-      page: number;
-      page_size: number;
-    }>(
+    fetchJSON<PaginatedResponse<Note>>(
       `/notes/search/?q=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}&sort=${sort}`
     ),
 };
@@ -73,7 +69,7 @@ export const actionItemsApi = {
     const url = completed === undefined
       ? '/action-items/'
       : `/action-items/?completed=${completed}`;
-    return fetchJSON<ActionItem[]>(url);
+    return fetchJSON<PaginatedResponse<ActionItem>>(url);
   },
 
   create: (item: ActionItemCreate) =>
