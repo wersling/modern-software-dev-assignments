@@ -1,4 +1,9 @@
-from backend.app.services.extract import Priority, extract_action_items, extract_priority
+from backend.app.services.extract import (
+    Priority,
+    extract_action_items,
+    extract_priority,
+    extract_tags,
+)
 
 
 def test_extract_action_items():
@@ -36,3 +41,28 @@ def test_extract_priority_low():
 def test_extract_priority_none():
     assert extract_priority("Just a task") is None
     assert extract_priority("Regular text") is None
+
+
+def test_extract_tags_single():
+    tags = extract_tags("Task #bugfix")
+    assert "bugfix" in tags
+
+
+def test_extract_tags_multiple():
+    tags = extract_tags("#feature #bugfix #enhancement")
+    assert len(tags) == 3
+    assert "feature" in tags
+    assert "bugfix" in tags
+    assert "enhancement" in tags
+
+
+def test_extract_tags_duplicates():
+    tags = extract_tags("#task #task #work")
+    assert len(tags) == 2
+    assert "task" in tags
+    assert "work" in tags
+
+
+def test_extract_tags_none():
+    tags = extract_tags("Just regular text")
+    assert len(tags) == 0
