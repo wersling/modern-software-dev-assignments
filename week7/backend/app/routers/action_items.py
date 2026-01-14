@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import asc, desc, select
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,23 @@ def create_item(payload: ActionItemCreate, db: Session = Depends(get_db)) -> Act
     return ActionItemRead.model_validate(item)
 
 
+@router.get("/{item_id}", response_model=ActionItemRead)
+def get_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead:
+    item = db.get(ActionItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+    return ActionItemRead.model_validate(item)
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: int, db: Session = Depends(get_db)) -> None:
+    item = db.get(ActionItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+    db.delete(item)
+    db.flush()
+
+
 @router.put("/{item_id}/complete", response_model=ActionItemRead)
 def complete_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead:
     item = db.get(ActionItem, item_id)
@@ -56,7 +73,9 @@ def complete_item(item_id: int, db: Session = Depends(get_db)) -> ActionItemRead
 
 
 @router.patch("/{item_id}", response_model=ActionItemRead)
-def patch_item(item_id: int, payload: ActionItemPatch, db: Session = Depends(get_db)) -> ActionItemRead:
+def patch_item(
+    item_id: int, payload: ActionItemPatch, db: Session = Depends(get_db)
+) -> ActionItemRead:
     item = db.get(ActionItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Action item not found")
@@ -68,5 +87,3 @@ def patch_item(item_id: int, payload: ActionItemPatch, db: Session = Depends(get
     db.flush()
     db.refresh(item)
     return ActionItemRead.model_validate(item)
-
-
