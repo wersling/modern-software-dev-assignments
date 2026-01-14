@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base, relationship
@@ -7,8 +7,17 @@ Base = declarative_base()
 
 
 class TimestampMixin:
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class Category(Base, TimestampMixin):
