@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,20 +12,28 @@ from .routers import categories as categories_router
 from .routers import comments as comments_router
 from .routers import notes as notes_router
 
-app = FastAPI(title="Modern Software Dev Starter (Week 6)", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown events."""
+    # Startup: Create database tables and apply seed data
+    Base.metadata.create_all(bind=engine)
+    apply_seed_if_needed()
+    yield
+    # Shutdown: Cleanup resources (if needed)
+
+
+app = FastAPI(
+    title="Modern Software Dev Starter (Week 6)",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 # Ensure data dir exists
 Path("data").mkdir(parents=True, exist_ok=True)
 
 # Mount static frontend
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
-
-# Compatibility with FastAPI lifespan events; keep on_event for simplicity here
-@app.on_event("startup")
-def startup_event() -> None:
-    Base.metadata.create_all(bind=engine)
-    apply_seed_if_needed()
 
 
 @app.get("/")
